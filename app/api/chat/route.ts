@@ -15,22 +15,26 @@ export async function POST(req: NextRequest) {
   const { messages, preferences } = await req.json()
 
   const genAI = new GoogleGenerativeAI(apiKey)
-  const model = genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash',
-    systemInstruction: buildSystemPrompt(preferences ?? {}),
-  })
+  const model = genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite' })
 
-  // Gemini needs "history" (all messages except the last) + the new message sent separately
-  const history = messages.slice(0, -1).map((m: ChatMessage) => ({
-    role: m.role === 'assistant' ? 'model' as const : 'user' as const,
-    parts: [{ text: m.content }],
-  }))
+  // Inject preferences as the opening user/model exchange so Gemini has context
+  const contents = [
+    { role: 'user' as const,  parts: [{ text: buildSystemPrompt(preferences ?? {}) }] },
+    { role: 'model' as const, parts: [{ text: 'Understood! I will help plan this trip based on these preferences.' }] },
+    ...messages.map((m: ChatMessage) => ({
+      role: m.role === 'assistant' ? 'model' as const : 'user' as const,
+      parts: [{ text: m.content }],
+    })),
+  ]
 
-  const chat = model.startChat({ history })
-  const lastMessage = messages[messages.length - 1]
-  const result = await chat.sendMessage(lastMessage.content)
-
-  return Response.json({ content: result.response.text() })
+  try {
+    const result = await model.generateContent({ contents })
+    return Response.json({ content: result.response.text() })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('Gemini error:', message)
+    return Response.json({ error: message }, { status: 500 })
+  }
 }
 
 function buildSystemPrompt(preferences: Record<string, string>) {
@@ -45,6 +49,6 @@ The user's travel preferences:
 ${prefsText}
 
 Generate specific, helpful recommendations that match these preferences.
-Use clear sections for readability. Include names, price ranges, and short descriptions.
+Use clear sections with emoji for readability. Include names, price ranges, and short descriptions.
 Be conversational and enthusiastic.`
 }

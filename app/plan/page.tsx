@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import ReactMarkdown from 'react-markdown'
 
 // --- Types ---
 
@@ -189,6 +190,10 @@ export default function PlanPage() {
         body: JSON.stringify({ messages: [userMsg], preferences }),
       })
       const data = await res.json()
+      if (!res.ok) {
+        addBotMessage(`Error: ${data.error}`)
+        return
+      }
       addBotMessage(data.content)
       setGeminiMessages([userMsg, { role: 'assistant', content: data.content }])
       setPhase('recommending')
@@ -210,10 +215,14 @@ export default function PlanPage() {
         body: JSON.stringify({ messages: newMessages, preferences }),
       })
       const data = await res.json()
+      if (!res.ok) {
+        addBotMessage(`Error: ${data.error}`)
+        return
+      }
       addBotMessage(data.content)
       setGeminiMessages([...newMessages, { role: 'assistant', content: data.content }])
-    } catch {
-      addBotMessage('Sorry, something went wrong. Please try again!')
+    } catch (err) {
+      addBotMessage(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setIsLoading(false)
     }
@@ -235,9 +244,8 @@ export default function PlanPage() {
   const currentChips =
     phase === 'collecting'
       ? STEPS[currentStep]?.chips ?? []
-      : phase === 'menu'
-      ? MENU_CHIPS
-      : []
+      : MENU_CHIPS
+
 
   return (
     <div className="flex flex-col h-screen bg-[#F4F2FF]">
@@ -303,9 +311,25 @@ export default function PlanPage() {
                   ? 'bg-violet-600 text-white rounded-br-sm'
                   : 'bg-white text-gray-800 shadow-sm rounded-bl-sm'
               }`}
-            >
-              {msg.content}
+                        >
+              {msg.role === 'bot' ? (
+                <ReactMarkdown
+                  components={{
+                    h3: ({ children }) => <p className="font-bold text-base mb-1">{children}</p>,
+                    strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                    ul: ({ children }) => <ul className="list-disc list-inside space-y-1 my-1">{children}</ul>,
+                    li: ({ children }) => <li className="text-sm">{children}</li>,
+                    p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                    hr: () => <hr className="my-2 border-gray-200" />,
+                  }}
+                >
+                  {msg.content}
+                </ReactMarkdown>
+              ) : (
+                msg.content
+              )}
             </div>
+
           </div>
         ))}
 
