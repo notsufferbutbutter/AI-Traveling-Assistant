@@ -27,16 +27,16 @@ interface TravelPreferences {
 // --- Step definitions ---
 
 const STEPS = [
-  { field: 'origin',        text: "Hey there! I'm WanderAI, your personal travel planning assistant. Let's start — where are you traveling from?", chips: [] },
-  { field: 'destination',   text: "Awesome! And where would you like to go? Name a city or country!", chips: [] },
-  { field: 'groupSize',     text: "How many people are traveling?", chips: ['1', '2', '3', '4', '5+'] },
-  { field: 'duration',      text: "How long is your trip?", chips: ['3 days', '5 days', '1 week', '2 weeks'] },
-  { field: 'budget',        text: "What's your budget level?", chips: ['tight', 'medium', 'luxury'] },
+  { field: 'origin', text: "Hey there! I'm WanderAI, your personal travel planning assistant. Let's start — where are you traveling from?", chips: [] },
+  { field: 'destination', text: "Awesome! And where would you like to go? Name a city or country!", chips: [] },
+  { field: 'groupSize', text: "How many people are traveling?", chips: ['1', '2', '3', '4', '5+'] },
+  { field: 'duration', text: "How long is your trip?", chips: ['3 days', '5 days', '1 week', '2 weeks'] },
+  { field: 'budget', text: "What's your budget level?", chips: ['tight', 'medium', 'luxury'] },
   { field: 'accommodation', text: "What type of accommodation do you prefer?", chips: ['hostel', '3-star hotel', '4-star hotel', '5-star hotel'] },
-  { field: 'foodType',      text: "What kind of food are you looking for?", chips: ['local cuisine', 'vegetarian / vegan', 'international'] },
-  { field: 'allergies',     text: "Any dietary restrictions or allergies? Pick all that apply!", chips: ['none', 'gluten-free', 'lactose-free', 'nut allergy'] },
-  { field: 'activities',    text: "What activities interest you? Pick as many as you like!", chips: ['city tour', 'cultural', 'adventure', 'water activities', 'sky activities'] },
-  { field: 'travelStyle',   text: "Last one! What best describes your travel style?", chips: ['budget traveler', 'luxury traveler', 'adventure traveler', 'cultural explorer', 'foodie traveler', 'relaxation', 'family-friendly'] },
+  { field: 'foodType', text: "What kind of food are you looking for?", chips: ['local cuisine', 'vegetarian / vegan', 'international'] },
+  { field: 'allergies', text: "Any dietary restrictions or allergies? Pick all that apply!", chips: ['none', 'gluten-free', 'lactose-free', 'nut allergy'] },
+  { field: 'activities', text: "What activities interest you? Pick as many as you like!", chips: ['city tour', 'cultural', 'adventure', 'water activities', 'sky activities'] },
+  { field: 'travelStyle', text: "Last one! What best describes your travel style?", chips: ['budget traveler', 'luxury traveler', 'adventure traveler', 'cultural explorer', 'foodie traveler', 'relaxation', 'family-friendly'] },
 ]
 
 const MENU_CHIPS = ['Hotels', 'Restaurants', 'Activities', 'Transportation']
@@ -306,28 +306,43 @@ export default function PlanPage() {
               </div>
             )}
             <div
-              className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
-                msg.role === 'user'
-                  ? 'bg-violet-600 text-white rounded-br-sm'
-                  : 'bg-white text-gray-800 shadow-sm rounded-bl-sm'
-              }`}
-                        >
+              className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${msg.role === 'user'
+                ? 'bg-violet-600 text-white rounded-br-sm'
+                : 'bg-white text-gray-800 shadow-sm rounded-bl-sm'
+                }`}
+            >
               {msg.role === 'bot' ? (
                 <ReactMarkdown
                   components={{
+<<<<<<< HEAD
                     h3: ({ children }) => <h3 className="font-bold text-base mb-1">{children}</h3>,
+=======
+                    h1: ({ children }) => <p className="font-bold text-sm mt-3 mb-1 first:mt-0">{children}</p>,
+                    h2: ({ children }) => <p className="font-bold text-sm mt-2 mb-1 first:mt-0">{children}</p>,
+                    h3: ({ children }) => <p className="font-semibold text-sm mt-2 mb-0.5 first:mt-0">{children}</p>,
+>>>>>>> 4322070 (more formatting)
                     strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                    ul: ({ children }) => <ul className="list-disc list-inside space-y-1 my-1">{children}</ul>,
-                    li: ({ children }) => <li className="text-sm">{children}</li>,
-                    p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                    hr: () => <hr className="my-2 border-gray-200" />,
+                    ul: ({ children }) => <ul className="my-1 space-y-0.5">{children}</ul>,
+                    ol: ({ children }) => <ol className="my-1 space-y-0.5 list-decimal list-inside">{children}</ol>,
+                    li: ({ children }) => (
+                      <li className="flex gap-1.5 items-start">
+                        <span className="shrink-0 text-violet-500 text-xs mt-1">●</span>
+                        <span className="leading-snug">{children}</span>
+                      </li>
+                    ),
+                    p: ({ children }) => <p className="mb-1 last:mb-0 leading-snug">{children}</p>,
+                    hr: () => <hr className="my-1.5 border-gray-100" />,
                   }}
                 >
-                  {msg.content}
+                  {msg.content
+                    .replace(/\n{3,}/g, '\n\n')
+                    .replace(/(\n[-*+][^\n]+)\n\n(?=[-*+])/g, '$1\n')}
                 </ReactMarkdown>
               ) : (
                 msg.content
               )}
+
+
             </div>
 
           </div>
@@ -354,11 +369,10 @@ export default function PlanPage() {
                   }
                 }}
                 disabled={isLoading}
-                className={`px-4 py-1.5 rounded-full text-sm transition-colors border disabled:opacity-40 ${
-                  isSelected
-                    ? 'bg-violet-600 text-white border-violet-600'
-                    : 'bg-white text-gray-700 border-gray-200 hover:border-violet-400 hover:text-violet-700'
-                }`}
+                className={`px-4 py-1.5 rounded-full text-sm transition-colors border disabled:opacity-40 ${isSelected
+                  ? 'bg-violet-600 text-white border-violet-600'
+                  : 'bg-white text-gray-700 border-gray-200 hover:border-violet-400 hover:text-violet-700'
+                  }`}
               >
                 {chip}
               </button>
