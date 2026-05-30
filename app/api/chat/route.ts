@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleGenAI } from '@google/genai'
 import { NextRequest } from 'next/server'
 
 interface ChatMessage {
@@ -38,12 +38,8 @@ export async function POST(req: NextRequest) {
 
   const { messages, preferences } = body
 
-  const genAI = new GoogleGenerativeAI(apiKey)
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite',
-                                          tools: [{googleSearch: {}}]
-   })
+  const ai = new GoogleGenAI({ apiKey })
 
-  // Inject preferences as the opening user/model exchange so Gemini has context
   const contents = [
     { role: 'user' as const,  parts: [{ text: buildSystemPrompt(normalizePreferences(preferences)) }] },
     { role: 'model' as const, parts: [{ text: 'Understood! I will help plan this trip based on these preferences.' }] },
@@ -54,8 +50,14 @@ export async function POST(req: NextRequest) {
   ]
 
   try {
-    const result = await model.generateContent({ contents })
-    return Response.json({ content: result.response.text() })
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-lite',
+      contents,
+      config: {
+        tools: [{ googleSearch: {} }],
+      },
+    })
+    return Response.json({ content: response.text })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error('Gemini error:', message)
