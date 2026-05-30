@@ -315,7 +315,7 @@ export default function PlanPage() {
               {msg.role === 'bot' ? (
                 <ReactMarkdown
                   components={{
-                    h3: ({ children }) => <p className="font-bold text-base mb-1">{children}</p>,
+                    h3: ({ children }) => <h3 className="font-bold text-base mb-1">{children}</h3>,
                     strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
                     ul: ({ children }) => <ul className="list-disc list-inside space-y-1 my-1">{children}</ul>,
                     li: ({ children }) => <li className="text-sm">{children}</li>,
