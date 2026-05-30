@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import ReactMarkdown from 'react-markdown'
 
 // --- Types ---
@@ -100,11 +101,16 @@ function TypingBubble() {
 // --- Main page ---
 
 export default function PlanPage() {
+  const searchParams = useSearchParams()
+  const prefilledDestination = searchParams.get('destination')
+
   const [messages, setMessages] = useState<Message[]>([
     { id: '0', role: 'bot', content: STEPS[0].text },
   ])
   const [currentStep, setCurrentStep] = useState(0)
-  const [preferences, setPreferences] = useState<Partial<TravelPreferences>>({})
+  const [preferences, setPreferences] = useState<Partial<TravelPreferences>>(
+    prefilledDestination ? { destination: prefilledDestination } : {}
+  )
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [phase, setPhase] = useState<'collecting' | 'menu' | 'recommending'>('collecting')
@@ -137,10 +143,17 @@ export default function PlanPage() {
       const newPrefs = { ...preferences, [field]: answer }
       setPreferences(newPrefs)
 
-      const nextIdx = currentStep + 1
+      let nextIdx = currentStep + 1
+
+      // Skip destination step if it was pre-filled from the landing page
+      if (nextIdx < STEPS.length && STEPS[nextIdx].field === 'destination' && newPrefs.destination) {
+        setTimeout(() => addUserMessage(newPrefs.destination!), 300)
+        nextIdx++
+      }
+
       if (nextIdx < STEPS.length) {
         setCurrentStep(nextIdx)
-        setTimeout(() => addBotMessage(STEPS[nextIdx].text), 400)
+        setTimeout(() => addBotMessage(STEPS[nextIdx].text), 700)
       } else {
         await generateSummary(newPrefs as TravelPreferences)
       }
@@ -231,7 +244,7 @@ export default function PlanPage() {
   function resetChat() {
     setMessages([{ id: '0', role: 'bot', content: STEPS[0].text }])
     setCurrentStep(0)
-    setPreferences({})
+    setPreferences(prefilledDestination ? { destination: prefilledDestination } : {})
     setPhase('collecting')
     setGeminiMessages([])
     setPendingMulti([])

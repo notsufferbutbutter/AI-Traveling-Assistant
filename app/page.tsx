@@ -9,8 +9,10 @@ export default function Home() {
       {/* 1. Header */}
       <header className="flex items-center justify-between px-6 py-5 max-w-7xl mx-auto w-full bg-white">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center">
-            <span className="text-white text-xs">🌐</span>
+          <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center text-white">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            </svg>
           </div>
           <span className="font-bold text-lg">WanderAI</span>
         </div>
@@ -97,14 +99,14 @@ export default function Home() {
               { city: "Barcelona", country: "Spain", img: "https://images.unsplash.com/photo-1511527661048-7fe73d85e9a4?w=800" }, // رابط جديد ومجرب لبرشلونة
               { city: "Tokyo", country: "Japan", img: "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=800" }
             ].map((dest, idx) => (
-              <div key={idx} className="rounded-2xl overflow-hidden relative h-80 group cursor-pointer shadow-md">
+              <Link key={idx} href={`/plan?destination=${dest.city}`} className="rounded-2xl overflow-hidden relative h-80 group cursor-pointer shadow-md block">
                 <img src={dest.img} alt={dest.city} className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-500" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
                 <div className="absolute bottom-4 left-4 text-white text-left">
                   <p className="text-[10px] opacity-80">{dest.country}</p>
                   <p className="font-bold text-lg">{dest.city}</p>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </section>
