@@ -182,11 +182,11 @@ export default function PlanPage() {
     await new Promise(r => setTimeout(r, 700))
     const summary =
       `Perfect! Here's your trip summary:\n\n` +
-      `📍 ${prefs.origin} → ${prefs.destination}\n` +
-      `👥 ${prefs.groupSize} traveler(s)  ·  ${prefs.duration}\n` +
-      `💰 ${prefs.budget} budget  ·  ${prefs.accommodation}\n` +
-      `🍽️ ${prefs.foodType}${prefs.allergies !== 'none' ? `  ·  ${prefs.allergies}` : ''}\n` +
-      `🎯 ${prefs.activities}  ·  ${prefs.travelStyle}\n\n` +
+      `${prefs.origin} → ${prefs.destination}\n` +
+      `${prefs.groupSize} traveler(s)  ·  ${prefs.duration}\n` +
+      `${prefs.budget} budget  ·  ${prefs.accommodation}\n` +
+      `${prefs.foodType}${prefs.allergies !== 'none' ? `  ·  ${prefs.allergies}` : ''}\n` +
+      `${prefs.activities}  ·  ${prefs.travelStyle}\n\n` +
       `What would you like to plan first?`
     addBotMessage(summary)
     setPhase('menu')
@@ -210,7 +210,7 @@ export default function PlanPage() {
       addBotMessage(data.content)
       setGeminiMessages([userMsg, { role: 'assistant', content: data.content }])
       setPhase('recommending')
-      setTimeout(() => addBotMessage('Anything else you want to explore? 👇'), 500)
+      setTimeout(() => addBotMessage('Anything else you want to explore?'), 500)
     } catch {
       addBotMessage('Sorry, something went wrong. Please try again!')
     } finally {
@@ -336,7 +336,6 @@ export default function PlanPage() {
                     ol: ({ children }) => <ol className="my-1 space-y-0.5 list-decimal list-inside">{children}</ol>,
                     li: ({ children }) => (
                       <li className="flex gap-1.5 items-start">
-                        <span className="shrink-0 text-[#8A81CF] text-xs mt-1">●</span>
                         <span className="leading-snug">{children}</span>
                       </li>
                     ),
