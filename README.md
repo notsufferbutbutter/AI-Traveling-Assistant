@@ -21,7 +21,7 @@ A personalized travel planning web app powered by Google Gemini AI. Users answer
 | --------------- | -------------------------------- |
 | Frontend        | Next.js 16, React 19, TypeScript |
 | Styling         | Tailwind CSS v4                  |
-| AI Model        | Google Gemini 1.5 Flash          |
+| AI Model        | Google Gemini 2.5 Flash-Lite          |
 | AI SDK          | @google/generative-ai            |
 | Package Manager | pnpm                             |
 
