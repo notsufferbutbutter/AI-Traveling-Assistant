@@ -15,7 +15,9 @@ export async function POST(req: NextRequest) {
   const { messages, preferences } = await req.json()
 
   const genAI = new GoogleGenerativeAI(apiKey)
-  const model = genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite' })
+  const model = genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite',
+                                          tools: [{googleSearchRetrieval: {}}]
+   })
 
   // Inject preferences as the opening user/model exchange so Gemini has context
   const contents = [
