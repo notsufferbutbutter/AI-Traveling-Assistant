@@ -1,0 +1,644 @@
+'use client'
+
+import Link from 'next/link'
+import { useCallback, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+
+type Feeling =
+  | 'energetic'
+  | 'tired'
+  | 'hungry'
+  | 'relaxed'
+  | 'adventurous'
+  | 'romantic'
+  | 'curious'
+
+type PlaceCategory =
+  | 'Restaurant'
+  | 'Activity'
+  | 'Trek / Hike'
+  | 'Attraction'
+  | 'Cafe / Bar'
+  | 'Other'
+
+interface VisitedPlace {
+  id: string
+  name: string
+  category: PlaceCategory
+  duration: string
+}
+
+const PLACE_CATEGORIES: PlaceCategory[] = [
+  'Restaurant',
+  'Activity',
+  'Trek / Hike',
+  'Attraction',
+  'Cafe / Bar',
+  'Other',
+]
+
+const FEELINGS: {
+  key: Feeling
+  emoji: string
+  label: string
+  className: string
+}[] = [
+  { key: 'energetic', emoji: '⚡', label: 'Energetic', className: 'border-amber-200 bg-amber-50 text-amber-700' },
+  { key: 'tired', emoji: '😴', label: 'Tired', className: 'border-sky-200 bg-sky-50 text-sky-700' },
+  { key: 'hungry', emoji: '🍽️', label: 'Hungry', className: 'border-orange-200 bg-orange-50 text-orange-700' },
+  { key: 'relaxed', emoji: '☕', label: 'Relaxed', className: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
+  { key: 'adventurous', emoji: '🏔️', label: 'Adventurous', className: 'border-red-200 bg-red-50 text-red-700' },
+  { key: 'romantic', emoji: '💕', label: 'Romantic', className: 'border-pink-200 bg-pink-50 text-pink-700' },
+  { key: 'curious', emoji: '🔍', label: 'Curious', className: 'border-violet-200 bg-violet-50 text-violet-700' },
+]
+
+const PREFERENCE_TAGS = [
+  'Beach & Coast',
+  'Mountains & Hiking',
+  'City & Urban',
+  'Cultural & Historic',
+  'Food & Culinary',
+  'Adventure & Extreme',
+  'Relaxation & Spa',
+  'Nightlife & Party',
+  'Nature & Wildlife',
+  'Art & Architecture',
+  'Shopping',
+  'Romantic Getaway',
+]
+
+const BUDGET_OPTIONS = ['Budget', 'Mid-Range', 'Luxury']
+
+const RADIUS_OPTIONS = [
+  'Inside current city',
+  'Within 5 km',
+  'Within 25 km',
+  'Within 100 km',
+  'Within 250 km',
+]
+
+function Icon({
+  name,
+  className = 'w-4 h-4',
+}: {
+  name: 'arrow-left' | 'compass' | 'map-pin' | 'plus' | 'sparkles' | 'refresh' | 'x' | 'clock'
+  className?: string
+}) {
+  const paths = {
+    'arrow-left': <path d="M19 12H5m7-7-7 7 7 7" />,
+    compass: (
+      <>
+        <circle cx="12" cy="12" r="10" />
+        <path d="m16 8-2 6-6 2 2-6 6-2Z" />
+      </>
+    ),
+    'map-pin': (
+      <>
+        <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" />
+        <circle cx="12" cy="10" r="3" />
+      </>
+    ),
+    plus: <path d="M12 5v14M5 12h14" />,
+    sparkles: <path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Zm7 12 .8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15ZM5 14l.8 2.2L8 17l-2.2.8L5 20l-.8-2.2L2 17l2.2-.8L5 14Z" />,
+    refresh: <path d="M21 12a9 9 0 0 1-15.3 6.4M3 12A9 9 0 0 1 18.3 5.6M3 18v-6h6M21 6v6h-6" />,
+    x: <path d="M18 6 6 18M6 6l12 12" />,
+    clock: (
+      <>
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 6v6l4 2" />
+      </>
+    ),
+  }
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      className={className}
+      aria-hidden="true"
+    >
+      {paths[name]}
+    </svg>
+  )
+}
+
+function SelectableChip({
+  label,
+  selected,
+  onClick,
+}: {
+  label: string
+  selected: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-3.5 py-2 rounded-xl border text-sm transition-colors ${
+        selected
+          ? 'bg-[#7469C4] text-white border-[#7469C4] shadow-sm'
+          : 'bg-white text-slate-600 border-slate-200 hover:border-[#9B92D8] hover:bg-[#F2F0FD]'
+      }`}
+    >
+      {label}
+    </button>
+  )
+}
+
+function PlaceRow({ place, onRemove }: { place: VisitedPlace; onRemove: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="w-8 h-8 rounded-lg bg-[#F2F0FD] flex items-center justify-center text-[#7469C4] shrink-0">
+          <Icon name="map-pin" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm text-slate-800 font-medium truncate">{place.name}</p>
+          <p className="text-xs text-slate-400 flex items-center gap-2">
+            <span className="px-1.5 py-0.5 rounded-md bg-[#F2F0FD] text-[#7469C4] font-medium">
+              {place.category}
+            </span>
+            <span className="flex items-center gap-1">
+              <Icon name="clock" className="w-3 h-3" />
+              {place.duration}
+            </span>
+          </p>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onRemove}
+        title="Remove"
+        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+      >
+        <Icon name="x" className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  )
+}
+
+function getLocalWeather() {
+  return {
+    location: 'Your Location',
+    temp: 22,
+    condition: 'Partly Cloudy',
+    humidity: 58,
+    wind: 12,
+  }
+}
+
+export default function TravelPage() {
+  const [visitedPlaces, setVisitedPlaces] = useState<VisitedPlace[]>([])
+  const [placeInput, setPlaceInput] = useState('')
+  const [durationInput, setDurationInput] = useState('')
+  const [categoryInput, setCategoryInput] = useState<PlaceCategory>('Restaurant')
+  const [feeling, setFeeling] = useState<Feeling | null>(null)
+  const [selectedPrefs, setSelectedPrefs] = useState<string[]>([])
+  const [selectedRadius, setSelectedRadius] = useState(RADIUS_OPTIONS[0])
+  const [selectedBudget, setSelectedBudget] = useState<string | null>(null)
+  const [currentLocation, setCurrentLocation] = useState('')
+  const [additionalNotes, setAdditionalNotes] = useState('')
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [suggestions, setSuggestions] = useState<string | null>(null)
+
+  const weather = getLocalWeather()
+  const canGenerate = currentLocation.trim().length > 0 && feeling !== null && selectedPrefs.length > 0
+
+  function addPlace() {
+    if (!placeInput.trim()) return
+    setVisitedPlaces(prev => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        name: placeInput.trim(),
+        category: categoryInput,
+        duration: durationInput.trim() || 'Not specified',
+      },
+    ])
+    setPlaceInput('')
+    setDurationInput('')
+  }
+
+  function togglePref(pref: string) {
+    setSelectedPrefs(prev =>
+      prev.includes(pref) ? prev.filter(item => item !== pref) : [...prev, pref]
+    )
+  }
+
+  const handleGenerate = useCallback(async () => {
+    if (!canGenerate) return
+    setIsGenerating(true)
+    setSuggestions(null)
+
+    const destination = currentLocation.trim()
+    const prompt = `Based on my travel history and current preferences, suggest where I should go next from ${destination}.
+
+IMPORTANT RADIUS RULE: Only recommend real places within "${selectedRadius}" from ${destination}. Recommendations can be inside the current city or outside the current city only if they fit inside this selected radius. Do not recommend a place that is farther away than "${selectedRadius}". If the destination is not specific enough to apply the radius, ask me for a more specific current city or address instead of guessing.
+
+Local spots I have already visited near my current location. Do not recommend any of these:
+${visitedPlaces.length > 0 ? visitedPlaces.map(place => `- ${place.name} [${place.category}], spent ${place.duration}`).join('\n') : '- None specified'}
+
+Exclude every place listed above from your recommendations. Use them only to understand my taste and suggest fresh, different places within "${selectedRadius}" from ${destination}.
+
+How I am feeling right now: ${feeling}
+
+What I am looking for next:
+${selectedPrefs.map(pref => `- ${pref}`).join('\n')}
+
+Budget level: ${selectedBudget || 'Mid-Range'}
+My current destination: ${destination}
+Recommendation radius: ${selectedRadius}
+${additionalNotes ? `Additional notes: ${additionalNotes}` : ''}
+
+Current local weather: ${weather.temp} C, ${weather.condition}, ${weather.humidity}% humidity, wind ${weather.wind} km/h
+
+Suggest 3 places or experiences within "${selectedRadius}" from ${destination} that would be perfect for me right now. For each one include:
+- Why it matches my mood and preferences
+- Best time to go today
+- What to do there
+- Approximate distance from ${destination}
+- Estimated budget range
+- One practical tip
+
+End with a short section titled "Why These Match You".`
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: prompt }],
+          preferences: {
+            origin: destination,
+            destination,
+            groupSize: 'not specified',
+            duration: 'not specified',
+            budget: selectedBudget === 'Luxury' ? 'luxury' : selectedBudget === 'Budget' ? 'tight' : 'medium',
+            accommodation: 'not specified',
+            foodType: selectedPrefs.includes('Food & Culinary') ? 'local cuisine' : 'not specified',
+            allergies: 'none',
+            activities: `${selectedPrefs.join(', ')}. Recommendation radius: ${selectedRadius}`,
+            travelStyle: feeling || 'not specified',
+          },
+        }),
+      })
+      const data = await response.json()
+
+      if (!response.ok) {
+        setSuggestions(`Error: ${data.error || 'Could not generate recommendations.'}`)
+        return
+      }
+
+      setSuggestions(data.content || 'No suggestions were returned. Please try again.')
+    } catch (error) {
+      setSuggestions(`Error: ${error instanceof Error ? error.message : 'Something went wrong.'}`)
+    } finally {
+      setIsGenerating(false)
+    }
+  }, [
+    additionalNotes,
+    canGenerate,
+    currentLocation,
+    feeling,
+    selectedBudget,
+    selectedPrefs,
+    selectedRadius,
+    visitedPlaces,
+    weather.condition,
+    weather.humidity,
+    weather.temp,
+    weather.wind,
+  ])
+
+  function resetAll() {
+    setVisitedPlaces([])
+    setPlaceInput('')
+    setDurationInput('')
+    setCategoryInput('Restaurant')
+    setFeeling(null)
+    setSelectedPrefs([])
+    setSelectedRadius(RADIUS_OPTIONS[0])
+    setSelectedBudget(null)
+    setCurrentLocation('')
+    setAdditionalNotes('')
+    setSuggestions(null)
+  }
+
+  return (
+    <div className="min-h-screen bg-[#F5F4FD] text-slate-900">
+      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-slate-200 px-4 md:px-6 py-3">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <Link href="/" className="p-2 rounded-xl hover:bg-slate-100 transition-colors" aria-label="Back home">
+              <Icon name="arrow-left" className="w-5 h-5 text-slate-600" />
+            </Link>
+            <div className="w-9 h-9 rounded-xl bg-[#7469C4] flex items-center justify-center text-white shrink-0">
+              <Icon name="compass" className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold truncate">Explore Next</p>
+              <p className="text-xs text-slate-400 truncate">Find a fresh destination from where you are</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={resetAll}
+              className="p-2 rounded-xl hover:bg-slate-100 transition-colors text-slate-500"
+              title="Reset"
+            >
+              <Icon name="refresh" />
+            </button>
+            <Link
+              href="/plan"
+              className="hidden sm:flex items-center gap-2 px-4 py-2 bg-[#F2F0FD] text-[#5E54A8] rounded-xl hover:bg-[#E7E4FA] transition-colors text-sm font-medium"
+            >
+              <Icon name="sparkles" />
+              Plan a Trip
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-4xl mx-auto px-4 md:px-6 py-6 space-y-8 pb-24">
+        <section className="relative rounded-2xl overflow-hidden h-48 md:h-56 bg-slate-800">
+          <img
+            src="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&q=80&w=1600"
+            alt="Scenic travel landscape"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent" />
+          <div className="absolute bottom-5 left-5 right-5">
+            <h1 className="text-white text-2xl md:text-3xl font-bold">
+              Discover Your Next Adventure
+            </h1>
+            <p className="text-white/80 text-sm mt-1">
+              Tell WanderAI what you have done and what you want now.
+            </p>
+          </div>
+        </section>
+
+        <section className="bg-white rounded-xl p-4 border border-slate-100 flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-sky-50 flex items-center justify-center text-sky-500 text-xl">
+              ☁
+            </div>
+            <div>
+              <p className="text-sm text-slate-500">Current Weather</p>
+              <p className="text-xl text-slate-800 font-bold">
+                {weather.temp} C <span className="text-sm text-slate-500 font-normal">{weather.condition}</span>
+              </p>
+            </div>
+          </div>
+          <div className="hidden sm:flex items-center gap-4 text-xs text-slate-400">
+            <span>{weather.humidity}% humidity</span>
+            <span>{weather.wind} km/h wind</span>
+          </div>
+        </section>
+
+        <section>
+          <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block font-semibold">
+            Your Current Destination
+          </label>
+          <div className="relative">
+            <Icon name="map-pin" className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              value={currentLocation}
+              onChange={event => setCurrentLocation(event.target.value)}
+              placeholder="e.g. Shibuya, Tokyo or Paris, France..."
+              className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C9C3F0] focus:border-[#9B92D8] text-sm"
+            />
+          </div>
+        </section>
+
+        <section>
+          <label className="text-xs text-slate-400 uppercase tracking-wider mb-3 block font-semibold">
+            Recommendation Radius
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {RADIUS_OPTIONS.map(option => (
+              <SelectableChip
+                key={option}
+                label={option}
+                selected={selectedRadius === option}
+                onClick={() => setSelectedRadius(option)}
+              />
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <label className="text-xs text-slate-400 uppercase tracking-wider mb-1 block font-semibold">
+            Places You Have Been <span className="text-slate-300 normal-case">(we will skip these)</span>
+          </label>
+          <p className="text-xs text-slate-400 mb-3">
+            Add restaurants, attractions, hikes, or activities near your current location.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2 mb-3">
+            <div className="flex-1 relative">
+              <Icon name="map-pin" className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                value={placeInput}
+                onChange={event => setPlaceInput(event.target.value)}
+                onKeyDown={event => event.key === 'Enter' && addPlace()}
+                placeholder="Spot name"
+                className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C9C3F0] focus:border-[#9B92D8] text-sm"
+              />
+            </div>
+            <select
+              value={categoryInput}
+              onChange={event => setCategoryInput(event.target.value as PlaceCategory)}
+              className="sm:w-44 px-3 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C9C3F0] focus:border-[#9B92D8] text-sm"
+            >
+              {PLACE_CATEGORIES.map(category => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+            <input
+              value={durationInput}
+              onChange={event => setDurationInput(event.target.value)}
+              onKeyDown={event => event.key === 'Enter' && addPlace()}
+              placeholder="Duration"
+              className="sm:w-40 px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C9C3F0] focus:border-[#9B92D8] text-sm"
+            />
+            <button
+              type="button"
+              onClick={addPlace}
+              disabled={!placeInput.trim()}
+              className="px-4 py-3 bg-[#7469C4] text-white rounded-xl hover:bg-[#5E54A8] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium"
+            >
+              <Icon name="plus" className="w-5 h-5" />
+              <span className="sm:hidden text-sm">Add spot</span>
+            </button>
+          </div>
+
+          {visitedPlaces.length > 0 ? (
+            <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
+              <p className="text-xs text-slate-400 mb-2 font-medium">
+                Travel history ({visitedPlaces.length}) excluded from recommendations
+              </p>
+              <div className="flex flex-col gap-2">
+                {visitedPlaces.map(place => (
+                  <PlaceRow
+                    key={place.id}
+                    place={place}
+                    onRemove={() => setVisitedPlaces(prev => prev.filter(item => item.id !== place.id))}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400 italic py-2">No places added yet. That is okay.</p>
+          )}
+        </section>
+
+        <section>
+          <label className="text-xs text-slate-400 uppercase tracking-wider mb-3 block font-semibold">
+            How Are You Feeling Right Now? <span className="text-red-400">*</span>
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
+            {FEELINGS.map(option => {
+              const selected = feeling === option.key
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  onClick={() => setFeeling(option.key)}
+                  className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-colors ${
+                    selected ? option.className : 'bg-white border-slate-100 hover:border-slate-200 text-slate-500'
+                  }`}
+                >
+                  <span className="text-2xl">{option.emoji}</span>
+                  <span className="text-xs font-medium">{option.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        </section>
+
+        <section>
+          <label className="text-xs text-slate-400 uppercase tracking-wider mb-3 block font-semibold">
+            What Are You Looking For? <span className="text-red-400">*</span>
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {PREFERENCE_TAGS.map(tag => (
+              <SelectableChip
+                key={tag}
+                label={tag}
+                selected={selectedPrefs.includes(tag)}
+                onClick={() => togglePref(tag)}
+              />
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <label className="text-xs text-slate-400 uppercase tracking-wider mb-3 block font-semibold">
+            Budget Level
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {BUDGET_OPTIONS.map(option => (
+              <SelectableChip
+                key={option}
+                label={option}
+                selected={selectedBudget === option}
+                onClick={() => setSelectedBudget(selectedBudget === option ? null : option)}
+              />
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block font-semibold">
+            Anything Else? <span className="text-slate-300 normal-case">(optional)</span>
+          </label>
+          <textarea
+            value={additionalNotes}
+            onChange={event => setAdditionalNotes(event.target.value)}
+            placeholder="e.g. I am solo, I want great coffee, I prefer fewer tourists..."
+            rows={3}
+            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C9C3F0] focus:border-[#9B92D8] text-sm resize-none"
+          />
+        </section>
+
+        <section className="pt-2">
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={!canGenerate || isGenerating}
+            className="w-full py-4 rounded-2xl text-white bg-[#7469C4] hover:bg-[#5E54A8] disabled:opacity-40 disabled:hover:bg-[#7469C4] transition-colors flex items-center justify-center gap-3 text-base font-semibold"
+          >
+            {isGenerating ? (
+              <>
+                <span className="w-5 h-5 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                Finding your perfect destinations...
+              </>
+            ) : (
+              <>
+                <Icon name="sparkles" className="w-5 h-5" />
+                Discover My Next Destination
+              </>
+            )}
+          </button>
+          {!canGenerate && (
+            <p className="text-xs text-center text-slate-400 mt-2">
+              Enter your current destination, select your mood, and choose at least one preference.
+            </p>
+          )}
+        </section>
+
+        {suggestions && (
+          <section className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+            <div className="bg-[#7469C4] px-6 py-4 flex items-center gap-3">
+              <Icon name="sparkles" className="w-5 h-5 text-white" />
+              <h2 className="text-white text-lg font-bold">Your Personalized Suggestions</h2>
+            </div>
+            <div className="px-6 py-5 text-sm text-slate-700 leading-relaxed">
+              <ReactMarkdown
+                components={{
+                  h1: ({ children }) => <h3 className="text-xl font-bold text-slate-900 mt-4 mb-2 first:mt-0">{children}</h3>,
+                  h2: ({ children }) => <h3 className="text-lg font-bold text-slate-900 mt-4 mb-2 first:mt-0">{children}</h3>,
+                  h3: ({ children }) => <h4 className="text-base font-semibold text-[#5E54A8] mt-3 mb-1">{children}</h4>,
+                  p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                  ul: ({ children }) => <ul className="list-disc pl-5 mb-3 space-y-1">{children}</ul>,
+                  ol: ({ children }) => <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>,
+                  strong: ({ children }) => <strong className="font-semibold text-slate-900">{children}</strong>,
+                }}
+              >
+                {suggestions}
+              </ReactMarkdown>
+            </div>
+            <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row gap-3">
+              <button
+                type="button"
+                onClick={handleGenerate}
+                disabled={isGenerating}
+                className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors text-sm text-slate-600 font-medium disabled:opacity-40"
+              >
+                <Icon name="refresh" />
+                Regenerate
+              </button>
+              <Link
+                href="/plan"
+                className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#7469C4] text-white hover:bg-[#5E54A8] transition-colors text-sm font-medium"
+              >
+                Plan a Full Trip
+              </Link>
+            </div>
+          </section>
+        )}
+
+        <p className="text-xs text-center text-slate-400 pb-4">
+          Powered by Gemini AI. Suggestions are AI-generated and should be verified.
+        </p>
+      </main>
+    </div>
+  )
+}
