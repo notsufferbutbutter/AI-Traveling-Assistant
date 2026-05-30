@@ -40,7 +40,7 @@ export default function Home() {
               Plan My Trip →
             </Link>
             <Link href="/travel" className="bg-[#ffffff] text-[#7469C4] border border-[#604cf5] font-bold px-6 py-3 rounded-full flex items-center gap-2 hover:bg-[#e8e6fb] transition-colors">
-              I am Already At The Destination
+              I am already at the destination
             </Link>
           </div>
         </section>
