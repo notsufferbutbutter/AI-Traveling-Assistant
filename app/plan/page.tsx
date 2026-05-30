@@ -314,13 +314,9 @@ export default function PlanPage() {
               {msg.role === 'bot' ? (
                 <ReactMarkdown
                   components={{
-<<<<<<< HEAD
-                    h3: ({ children }) => <h3 className="font-bold text-base mb-1">{children}</h3>,
-=======
                     h1: ({ children }) => <p className="font-bold text-sm mt-3 mb-1 first:mt-0">{children}</p>,
                     h2: ({ children }) => <p className="font-bold text-sm mt-2 mb-1 first:mt-0">{children}</p>,
                     h3: ({ children }) => <p className="font-semibold text-sm mt-2 mb-0.5 first:mt-0">{children}</p>,
->>>>>>> 4322070 (more formatting)
                     strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
                     ul: ({ children }) => <ul className="my-1 space-y-0.5">{children}</ul>,
                     ol: ({ children }) => <ol className="my-1 space-y-0.5 list-decimal list-inside">{children}</ol>,
@@ -341,6 +337,7 @@ export default function PlanPage() {
               ) : (
                 msg.content
               )}
+
 
 
             </div>
