@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <!-- Radial gradient for depth — lighter top-left, darker bottom-right -->
+    <radialGradient id="bg" cx="35%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#9085D4"/>
+      <stop offset="100%" stop-color="#5045A0"/>
+    </radialGradient>
+    <!-- Glass sheen gradient -->
+    <linearGradient id="sheen" x1="0%" y1="0%" x2="10%" y2="100%">
+      <stop offset="0%"   stop-color="white" stop-opacity="0.45"/>
+      <stop offset="55%"  stop-color="white" stop-opacity="0.0"/>
+    </linearGradient>
+    <clipPath id="clip">
+      <circle cx="50" cy="50" r="50"/>
+    </clipPath>
+  </defs>
+
+  <!-- Base circle -->
+  <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+
+  <!-- Glass sheen — top-left highlight ellipse -->
+  <ellipse cx="37" cy="27" rx="32" ry="20"
+           fill="url(#sheen)"
+           clip-path="url(#clip)"/>
+
+  <!-- Star — mathematically centred at (50, 50), outer r=28, inner r=11.2 -->
+  <path d="M50,22 L56.6,41 L76.6,41.3 L60.7,53.5 L66.5,72.7 L50,61.2 L33.5,72.7 L39.3,53.5 L23.4,41.3 L43.4,41 Z"
+        fill="white" fill-opacity="0.95"/>
+
+  <!-- Subtle glass rim -->
+  <circle cx="50" cy="50" r="48.5" fill="none"
+          stroke="white" stroke-opacity="0.2" stroke-width="1.5"/>
+</svg>
