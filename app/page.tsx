@@ -39,9 +39,9 @@ export default function Home() {
             <Link href="/plan" className="bg-[#7469C4] text-white font-bold px-6 py-3 rounded-full flex items-center gap-2 hover:bg-[#5E54A8] transition-colors">
               Plan My Trip →
             </Link>
-            <button className="border border-zinc-200 text-zinc-700 font-semibold px-6 py-3 rounded-full hover:bg-zinc-50 hover:border-zinc-300 transition-colors">
-              See How It Works
-            </button>
+            <Link href="/travel" className="bg-[#ffffff] text-[#7469C4] border border-[#604cf5] font-bold px-6 py-3 rounded-full flex items-center gap-2 hover:bg-[#e8e6fb] transition-colors">
+              I am Already At The Destination
+            </Link>
           </div>
         </section>
         {/* 3. Featured Image */}
@@ -115,7 +115,7 @@ export default function Home() {
         <section className="w-full max-w-4xl bg-[#7469C4] rounded-2xl p-12 text-center text-white flex flex-col items-center gap-6">
           <h2 className="text-3xl font-bold">Ready for Your Next Adventure?</h2>
           <p className="text-white/80 text-sm max-w-md">
-            Let our AI chatbot plan every detail. Just tell us what you love, and we'll handle the rest.
+            Let our AI chatbot plan every detail. Just tell us what you love, and we will handle the rest.
           </p>
           <Link href="/plan" className="bg-white text-[#7469C4] font-bold px-8 py-3 rounded-xl hover:bg-zinc-100 transition-colors">
             Start Chatting Now
