@@ -1,36 +1,86 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# WanderAI — AI Travel Assistant
 
-## Getting Started
+A personalized travel planning web app powered by Google Gemini AI. Users answer a short conversational questionnaire and receive tailored recommendations for hotels, restaurants, activities, and transportation.
 
-First, run the development server:
+---
+
+## Features
+
+- **Step-by-step planning chatbot** — collects travel preferences through a guided 10-step conversation
+- **Quick-reply chips** — select answers with one click or type freely
+- **Multi-select preferences** — pick multiple activities and dietary restrictions
+- **AI-powered recommendations** — Gemini generates hotel, restaurant, activity, and transport suggestions based on your preferences
+- **Follow-up chat** — ask follow-up questions after receiving recommendations
+- **Google Search grounding** — recommendations are grounded with live web search results
+
+---
+
+## Tech Stack
+
+| Layer           | Technology                       |
+| --------------- | -------------------------------- |
+| Frontend        | Next.js 16, React 19, TypeScript |
+| Styling         | Tailwind CSS v4                  |
+| AI Model        | Google Gemini 1.5 Flash          |
+| AI SDK          | @google/generative-ai            |
+| Package Manager | pnpm                             |
+
+---
+
+## Prerequisites
+
+- Node.js 18+
+- pnpm
+- A [Google AI Studio](https://aistudio.google.com) API key (free tier)
+
+---
+
+## Setup
+
+**1. Clone the repository**
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/notsufferbutbutter/AI-Traveling-Assistant.git
+cd AI-Traveling-Assistant
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**2. Install dependencies**
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+pnpm install
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+**3. Add your Gemini API key**
 
-## Learn More
+Create a `.env.local` file in the project root:
 
-To learn more about Next.js, take a look at the following resources:
+```
+GEMINI_API_KEY=your_api_key_here
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**4. Run the development server**
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+pnpm dev
+```
 
-## Deploy on Vercel
+Open [http://localhost:3000/plan](http://localhost:3000/plan) to use the planning chatbot.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Project Structure
+
+```
+app/
+├── plan/
+│   └── page.tsx        # Planning chatbot UI (client component)
+├── api/
+│   └── chat/
+│       └── route.ts    # Gemini API route handler
+├── globals.css
+└── layout.tsx
+```
+
+---
+
+> Recommendations are AI-generated and should be independently verified before booking.
