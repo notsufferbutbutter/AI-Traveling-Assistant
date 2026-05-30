@@ -96,7 +96,7 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
               { city: "Paris", country: "France", img: "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800" },
-              { city: "Barcelona", country: "Spain", img: "https://images.unsplash.com/photo-1511527661048-7fe73d85e9a4?w=800" }, // رابط جديد ومجرب لبرشلونة
+              { city: "Barcelona", country: "Spain", img: "https://images.unsplash.com/photo-1511527661048-7fe73d85e9a4?w=800" }, 
               { city: "Tokyo", country: "Japan", img: "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=800" }
             ].map((dest, idx) => (
               <Link key={idx} href={`/plan?destination=${dest.city}`} className="rounded-2xl overflow-hidden relative h-80 group cursor-pointer block">
