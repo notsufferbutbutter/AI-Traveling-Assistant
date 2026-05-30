@@ -84,14 +84,14 @@ function RefreshIcon() {
 function TypingBubble() {
   return (
     <div className="flex items-end gap-2">
-      <div className="w-8 h-8 rounded-full bg-violet-600 flex items-center justify-center text-white shrink-0">
+      <div className="w-8 h-8 rounded-full bg-[#7469C4] flex items-center justify-center text-white shrink-0">
         <StarIcon />
       </div>
       <div className="bg-white px-4 py-3 rounded-2xl rounded-bl-sm shadow-sm">
         <div className="flex gap-1 items-center">
-          <span className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-          <span className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-          <span className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+          <span className="w-2 h-2 bg-[#9B92D8] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+          <span className="w-2 h-2 bg-[#9B92D8] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+          <span className="w-2 h-2 bg-[#9B92D8] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
         </div>
       </div>
     </div>
@@ -261,7 +261,8 @@ export default function PlanPage() {
 
 
   return (
-    <div className="flex flex-col h-screen bg-[#F4F2FF]">
+    <div className="h-screen bg-[#F5F4FD] flex justify-center">
+    <div className="flex flex-col w-full max-w-2xl h-full bg-white border-x border-gray-100">
 
       {/* Header */}
       <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3 shrink-0">
@@ -274,7 +275,7 @@ export default function PlanPage() {
         </button>
 
         <div className="flex items-center gap-2.5 flex-1 min-w-0">
-          <div className="w-9 h-9 rounded-full bg-violet-600 flex items-center justify-center text-white shrink-0">
+          <div className="w-9 h-9 rounded-full bg-[#7469C4] flex items-center justify-center text-white shrink-0">
             <StarIcon size={16} />
           </div>
           <div className="min-w-0">
@@ -290,7 +291,7 @@ export default function PlanPage() {
             </span>
             <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
               <div
-                className="h-full bg-violet-600 rounded-full transition-all duration-500"
+                className="h-full bg-[#7469C4] rounded-full transition-all duration-500"
                 style={{ width: `${((currentStep + 1) / TOTAL_STEPS) * 100}%` }}
               />
             </div>
@@ -299,7 +300,7 @@ export default function PlanPage() {
 
         <button
           onClick={resetChat}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-violet-600 hover:bg-violet-50 transition-colors shrink-0"
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-[#7469C4] hover:bg-[#F2F0FD] transition-colors shrink-0"
           aria-label="Reset chat"
         >
           <RefreshIcon />
@@ -314,13 +315,13 @@ export default function PlanPage() {
             className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} items-end gap-2`}
           >
             {msg.role === 'bot' && (
-              <div className="w-8 h-8 rounded-full bg-violet-600 flex items-center justify-center text-white shrink-0">
+              <div className="w-8 h-8 rounded-full bg-[#7469C4] flex items-center justify-center text-white shrink-0">
                 <StarIcon />
               </div>
             )}
             <div
               className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${msg.role === 'user'
-                ? 'bg-violet-600 text-white rounded-br-sm'
+                ? 'bg-[#7469C4] text-white rounded-br-sm'
                 : 'bg-white text-gray-800 shadow-sm rounded-bl-sm'
                 }`}
             >
@@ -335,7 +336,7 @@ export default function PlanPage() {
                     ol: ({ children }) => <ol className="my-1 space-y-0.5 list-decimal list-inside">{children}</ol>,
                     li: ({ children }) => (
                       <li className="flex gap-1.5 items-start">
-                        <span className="shrink-0 text-violet-500 text-xs mt-1">●</span>
+                        <span className="shrink-0 text-[#8A81CF] text-xs mt-1">●</span>
                         <span className="leading-snug">{children}</span>
                       </li>
                     ),
@@ -380,8 +381,8 @@ export default function PlanPage() {
                 }}
                 disabled={isLoading}
                 className={`px-4 py-1.5 rounded-full text-sm transition-colors border disabled:opacity-40 ${isSelected
-                  ? 'bg-violet-600 text-white border-violet-600'
-                  : 'bg-white text-gray-700 border-gray-200 hover:border-violet-400 hover:text-violet-700'
+                  ? 'bg-[#7469C4] text-white border-[#7469C4]'
+                  : 'bg-white text-gray-700 border-gray-200 hover:border-[#9B92D8] hover:text-[#5E54A8]'
                   }`}
               >
                 {chip}
@@ -392,7 +393,7 @@ export default function PlanPage() {
           {isMultiSelectStep && pendingMulti.length > 0 && (
             <button
               onClick={() => handleAnswer(pendingMulti.join(', '))}
-              className="px-4 py-1.5 rounded-full text-sm bg-violet-600 text-white border border-violet-600 font-medium"
+              className="px-4 py-1.5 rounded-full text-sm bg-[#7469C4] text-white border border-[#7469C4] font-medium"
             >
               Done ✓
             </button>
@@ -415,12 +416,12 @@ export default function PlanPage() {
             }}
             placeholder="Or type your own answer..."
             disabled={isLoading}
-            className="flex-1 text-sm text-gray-700 bg-gray-50 rounded-full px-4 py-2.5 outline-none border border-transparent focus:border-violet-300 focus:bg-white transition-colors placeholder:text-gray-400 disabled:opacity-50"
+            className="flex-1 text-sm text-gray-700 bg-gray-50 rounded-full px-4 py-2.5 outline-none border border-transparent focus:border-[#B8B0E8] focus:bg-white transition-colors placeholder:text-gray-400 disabled:opacity-50"
           />
           <button
             onClick={() => handleAnswer(input)}
             disabled={!input.trim() || isLoading}
-            className="w-10 h-10 rounded-full bg-violet-600 flex items-center justify-center text-white disabled:opacity-40 hover:bg-violet-700 transition-colors shrink-0"
+            className="w-10 h-10 rounded-full bg-[#7469C4] flex items-center justify-center text-white disabled:opacity-40 hover:bg-[#5E54A8] transition-colors shrink-0"
             aria-label="Send"
           >
             <SendIcon />
@@ -430,6 +431,7 @@ export default function PlanPage() {
           Powered by Gemini AI. Recommendations are AI-generated and should be verified.
         </p>
       </div>
+    </div>
     </div>
   )
 }
