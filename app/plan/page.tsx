@@ -44,6 +44,14 @@ const MENU_CHIPS = ['Hotels', 'Restaurants', 'Activities', 'Transportation']
 const MULTI_SELECT_FIELDS = ['allergies', 'activities']
 const TOTAL_STEPS = STEPS.length
 
+// US8: Reiseplan ändern / neu generieren
+const STEP_LABELS: Record<string, string> = {
+  origin: 'Von', destination: 'Nach', groupSize: 'Reisende',
+  duration: 'Dauer', budget: 'Budget', accommodation: 'Unterkunft',
+  foodType: 'Essen', allergies: 'Allergien', activities: 'Aktivitäten',
+  travelStyle: 'Reisestil',
+}
+
 // --- Icons ---
 
 function StarIcon({ size = 14 }: { size?: number }) {
@@ -79,6 +87,16 @@ function RefreshIcon() {
   )
 }
 
+// US8: Edit Icon
+function EditIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  )
+}
+
 // --- Typing animation ---
 
 function TypingBubble() {
@@ -103,6 +121,9 @@ function TypingBubble() {
 export default function PlanPage() {
   const searchParams = useSearchParams()
   const prefilledDestination = searchParams.get('destination')
+
+  // US8: Edit panel state
+  const [showEditPanel, setShowEditPanel] = useState(false)
 
   const [messages, setMessages] = useState<Message[]>([
     { id: '0', role: 'bot', content: STEPS[0].text },
@@ -145,7 +166,6 @@ export default function PlanPage() {
 
       let nextIdx = currentStep + 1
 
-      // Skip destination step if it was pre-filled from the landing page
       if (nextIdx < STEPS.length && STEPS[nextIdx].field === 'destination' && newPrefs.destination) {
         setTimeout(() => addUserMessage(newPrefs.destination!), 300)
         nextIdx++
@@ -249,6 +269,16 @@ export default function PlanPage() {
     setGeminiMessages([])
     setPendingMulti([])
     setInput('')
+    setShowEditPanel(false)
+  }
+
+  // US8: Save edited preferences and re-enter menu
+  async function handleEditSave(updated: Partial<TravelPreferences>) {
+    setShowEditPanel(false)
+    setPreferences(updated)
+    addBotMessage('✏️ Präferenzen aktualisiert! Was soll ich neu planen?')
+    setPhase('menu')
+    setGeminiMessages([])
   }
 
   const isMultiSelectStep =
@@ -259,178 +289,221 @@ export default function PlanPage() {
       ? STEPS[currentStep]?.chips ?? []
       : MENU_CHIPS
 
-
   return (
     <div className="h-screen bg-[#F5F4FD] flex justify-center">
-    <div className="flex flex-col w-full max-w-2xl h-full bg-white border-x border-gray-100">
+      <div className="relative flex flex-col w-full max-w-2xl h-full bg-white border-x border-gray-100">
 
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3 shrink-0">
-        <button
-          onClick={() => window.history.back()}
-          className="text-gray-400 hover:text-gray-600 transition-colors"
-          aria-label="Go back"
-        >
-          <BackIcon />
-        </button>
+        {/* Header */}
+        <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3 shrink-0">
+          <button
+            onClick={() => window.history.back()}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+            aria-label="Go back"
+          >
+            <BackIcon />
+          </button>
 
-        <div className="flex items-center gap-2.5 flex-1 min-w-0">
-          <div className="w-9 h-9 rounded-full bg-[#7469C4] flex items-center justify-center text-white shrink-0">
-            <StarIcon size={16} />
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            <div className="w-9 h-9 rounded-full bg-[#7469C4] flex items-center justify-center text-white shrink-0">
+              <StarIcon size={16} />
+            </div>
+            <div className="min-w-0">
+              <p className="font-semibold text-sm text-gray-900 leading-tight">WanderAI</p>
+              <p className="text-xs text-emerald-500 leading-tight">● Online</p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="font-semibold text-sm text-gray-900 leading-tight">WanderAI</p>
-            <p className="text-xs text-emerald-500 leading-tight">● Online</p>
-          </div>
+
+          {phase === 'collecting' && (
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs text-gray-400 font-medium whitespace-nowrap">
+                Step {currentStep + 1}/{TOTAL_STEPS}
+              </span>
+              <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-[#7469C4] rounded-full transition-all duration-500"
+                  style={{ width: `${((currentStep + 1) / TOTAL_STEPS) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* US8: Bearbeiten-Button */}
+          {(phase === 'menu' || phase === 'recommending') && (
+            <button
+              onClick={() => setShowEditPanel(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F2F0FD] text-[#5E54A8] text-xs font-semibold hover:bg-[#E7E4FA] transition-colors shrink-0"
+            >
+              <EditIcon />
+              Bearbeiten
+            </button>
+          )}
+
+          <button
+            onClick={resetChat}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-[#7469C4] hover:bg-[#F2F0FD] transition-colors shrink-0"
+            aria-label="Reset chat"
+          >
+            <RefreshIcon />
+          </button>
+        </header>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+          {messages.map(msg => (
+            <div
+              key={msg.id}
+              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} items-end gap-2`}
+            >
+              {msg.role === 'bot' && (
+                <div className="w-8 h-8 rounded-full bg-[#7469C4] flex items-center justify-center text-white shrink-0">
+                  <StarIcon />
+                </div>
+              )}
+              <div
+                className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${msg.role === 'user'
+                  ? 'bg-[#7469C4] text-white rounded-br-sm'
+                  : 'bg-white text-gray-800 shadow-sm rounded-bl-sm'
+                  }`}
+              >
+                {msg.role === 'bot' ? (
+                  <ReactMarkdown
+                    components={{
+                      h1: ({ children }) => <p className="font-bold text-sm mt-3 mb-1 first:mt-0">{children}</p>,
+                      h2: ({ children }) => <p className="font-bold text-sm mt-2 mb-1 first:mt-0">{children}</p>,
+                      h3: ({ children }) => <p className="font-semibold text-sm mt-2 mb-0.5 first:mt-0">{children}</p>,
+                      strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                      ul: ({ children }) => <ul className="my-1 space-y-0.5">{children}</ul>,
+                      ol: ({ children }) => <ol className="my-1 space-y-0.5 list-decimal list-inside">{children}</ol>,
+                      li: ({ children }) => (
+                        <li className="flex gap-1.5 items-start">
+                          <span className="leading-snug">{children}</span>
+                        </li>
+                      ),
+                      p: ({ children }) => <p className="mb-1 last:mb-0 leading-snug">{children}</p>,
+                      hr: () => <hr className="my-1.5 border-gray-100" />,
+                    }}
+                  >
+                    {msg.content
+                      .replace(/\n{3,}/g, '\n\n')
+                      .replace(/(\n[-*+][^\n]+)\n\n(?=[-*+])/g, '$1\n')}
+                  </ReactMarkdown>
+                ) : (
+                  msg.content
+                )}
+              </div>
+            </div>
+          ))}
+
+          {isLoading && <TypingBubble />}
+
+          <div ref={messagesEndRef} />
         </div>
 
-        {phase === 'collecting' && (
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-xs text-gray-400 font-medium whitespace-nowrap">
-              Step {currentStep + 1}/{TOTAL_STEPS}
-            </span>
-            <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[#7469C4] rounded-full transition-all duration-500"
-                style={{ width: `${((currentStep + 1) / TOTAL_STEPS) * 100}%` }}
-              />
+        {/* Quick chips */}
+        {currentChips.length > 0 && (
+          <div className="px-4 pb-2 flex flex-wrap gap-2">
+            {currentChips.map(chip => {
+              const isSelected = isMultiSelectStep && pendingMulti.includes(chip)
+              return (
+                <button
+                  key={chip}
+                  onClick={() => {
+                    if (isMultiSelectStep) {
+                      toggleMultiChip(chip)
+                    } else {
+                      handleAnswer(chip)
+                    }
+                  }}
+                  disabled={isLoading}
+                  className={`px-4 py-1.5 rounded-full text-sm transition-colors border disabled:opacity-40 ${isSelected
+                    ? 'bg-[#7469C4] text-white border-[#7469C4]'
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-[#9B92D8] hover:text-[#5E54A8]'
+                    }`}
+                >
+                  {chip}
+                </button>
+              )
+            })}
+
+            {isMultiSelectStep && pendingMulti.length > 0 && (
+              <button
+                onClick={() => handleAnswer(pendingMulti.join(', '))}
+                className="px-4 py-1.5 rounded-full text-sm bg-[#7469C4] text-white border border-[#7469C4] font-medium"
+              >
+                Done ✓
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Input bar */}
+        <div className="bg-white border-t border-gray-100 px-4 pt-3 pb-4 shrink-0">
+          <div className="flex items-center gap-2">
+            <input
+              ref={inputRef}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleAnswer(input)
+                }
+              }}
+              placeholder="Or type your own answer..."
+              disabled={isLoading}
+              className="flex-1 text-sm text-gray-700 bg-gray-50 rounded-full px-4 py-2.5 outline-none border border-transparent focus:border-[#B8B0E8] focus:bg-white transition-colors placeholder:text-gray-400 disabled:opacity-50"
+            />
+            <button
+              onClick={() => handleAnswer(input)}
+              disabled={!input.trim() || isLoading}
+              className="w-10 h-10 rounded-full bg-[#7469C4] flex items-center justify-center text-white disabled:opacity-40 hover:bg-[#5E54A8] transition-colors shrink-0"
+              aria-label="Send"
+            >
+              <SendIcon />
+            </button>
+          </div>
+          <p className="text-center text-xs text-gray-400 mt-2">
+            Powered by Gemini AI. Recommendations are AI-generated and should be verified.
+          </p>
+        </div>
+
+        {/* US8: Edit Panel Overlay */}
+        {showEditPanel && (
+          <div className="absolute inset-0 z-40 bg-white flex flex-col">
+            <div className="bg-[#7469C4] px-4 py-3 flex items-center gap-3 shrink-0">
+              <button
+                onClick={() => setShowEditPanel(false)}
+                className="text-white/70 hover:text-white text-lg leading-none"
+              >
+                ✕
+              </button>
+              <p className="text-white font-semibold text-sm flex-1">Reiseplan bearbeiten</p>
+              <button
+                onClick={() => handleEditSave(preferences)}
+                className="px-3 py-1.5 bg-white text-[#7469C4] rounded-lg text-xs font-semibold hover:bg-[#F2F0FD] transition-colors"
+              >
+                Neu generieren
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+              {STEPS.map(step => (
+                <div key={step.field} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                  <label className="text-xs text-slate-500 font-semibold uppercase tracking-wide mb-2 block">
+                    {STEP_LABELS[step.field]}
+                  </label>
+                  <input
+                    type="text"
+                    value={preferences[step.field as keyof TravelPreferences] ?? ''}
+                    onChange={e => setPreferences(prev => ({ ...prev, [step.field]: e.target.value }))}
+                    className="w-full text-sm px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9C3F0]"
+                  />
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        <button
-          onClick={resetChat}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-[#7469C4] hover:bg-[#F2F0FD] transition-colors shrink-0"
-          aria-label="Reset chat"
-        >
-          <RefreshIcon />
-        </button>
-      </header>
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-        {messages.map(msg => (
-          <div
-            key={msg.id}
-            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} items-end gap-2`}
-          >
-            {msg.role === 'bot' && (
-              <div className="w-8 h-8 rounded-full bg-[#7469C4] flex items-center justify-center text-white shrink-0">
-                <StarIcon />
-              </div>
-            )}
-            <div
-              className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${msg.role === 'user'
-                ? 'bg-[#7469C4] text-white rounded-br-sm'
-                : 'bg-white text-gray-800 shadow-sm rounded-bl-sm'
-                }`}
-            >
-              {msg.role === 'bot' ? (
-                <ReactMarkdown
-                  components={{
-                    h1: ({ children }) => <p className="font-bold text-sm mt-3 mb-1 first:mt-0">{children}</p>,
-                    h2: ({ children }) => <p className="font-bold text-sm mt-2 mb-1 first:mt-0">{children}</p>,
-                    h3: ({ children }) => <p className="font-semibold text-sm mt-2 mb-0.5 first:mt-0">{children}</p>,
-                    strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                    ul: ({ children }) => <ul className="my-1 space-y-0.5">{children}</ul>,
-                    ol: ({ children }) => <ol className="my-1 space-y-0.5 list-decimal list-inside">{children}</ol>,
-                    li: ({ children }) => (
-                      <li className="flex gap-1.5 items-start">
-                        <span className="leading-snug">{children}</span>
-                      </li>
-                    ),
-                    p: ({ children }) => <p className="mb-1 last:mb-0 leading-snug">{children}</p>,
-                    hr: () => <hr className="my-1.5 border-gray-100" />,
-                  }}
-                >
-                  {msg.content
-                    .replace(/\n{3,}/g, '\n\n')
-                    .replace(/(\n[-*+][^\n]+)\n\n(?=[-*+])/g, '$1\n')}
-                </ReactMarkdown>
-              ) : (
-                msg.content
-              )}
-
-
-
-            </div>
-
-          </div>
-        ))}
-
-        {isLoading && <TypingBubble />}
-
-        <div ref={messagesEndRef} />
       </div>
-
-      {/* Quick chips */}
-      {currentChips.length > 0 && (
-        <div className="px-4 pb-2 flex flex-wrap gap-2">
-          {currentChips.map(chip => {
-            const isSelected = isMultiSelectStep && pendingMulti.includes(chip)
-            return (
-              <button
-                key={chip}
-                onClick={() => {
-                  if (isMultiSelectStep) {
-                    toggleMultiChip(chip)
-                  } else {
-                    handleAnswer(chip)
-                  }
-                }}
-                disabled={isLoading}
-                className={`px-4 py-1.5 rounded-full text-sm transition-colors border disabled:opacity-40 ${isSelected
-                  ? 'bg-[#7469C4] text-white border-[#7469C4]'
-                  : 'bg-white text-gray-700 border-gray-200 hover:border-[#9B92D8] hover:text-[#5E54A8]'
-                  }`}
-              >
-                {chip}
-              </button>
-            )
-          })}
-
-          {isMultiSelectStep && pendingMulti.length > 0 && (
-            <button
-              onClick={() => handleAnswer(pendingMulti.join(', '))}
-              className="px-4 py-1.5 rounded-full text-sm bg-[#7469C4] text-white border border-[#7469C4] font-medium"
-            >
-              Done ✓
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Input bar */}
-      <div className="bg-white border-t border-gray-100 px-4 pt-3 pb-4 shrink-0">
-        <div className="flex items-center gap-2">
-          <input
-            ref={inputRef}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                handleAnswer(input)
-              }
-            }}
-            placeholder="Or type your own answer..."
-            disabled={isLoading}
-            className="flex-1 text-sm text-gray-700 bg-gray-50 rounded-full px-4 py-2.5 outline-none border border-transparent focus:border-[#B8B0E8] focus:bg-white transition-colors placeholder:text-gray-400 disabled:opacity-50"
-          />
-          <button
-            onClick={() => handleAnswer(input)}
-            disabled={!input.trim() || isLoading}
-            className="w-10 h-10 rounded-full bg-[#7469C4] flex items-center justify-center text-white disabled:opacity-40 hover:bg-[#5E54A8] transition-colors shrink-0"
-            aria-label="Send"
-          >
-            <SendIcon />
-          </button>
-        </div>
-        <p className="text-center text-xs text-gray-400 mt-2">
-          Powered by Gemini AI. Recommendations are AI-generated and should be verified.
-        </p>
-      </div>
-    </div>
     </div>
   )
 }

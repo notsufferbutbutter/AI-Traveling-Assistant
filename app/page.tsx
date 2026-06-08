@@ -46,11 +46,19 @@ export default function Home() {
         </section>
         {/* 3. Featured Image */}
         <section className="w-full max-w-4xl rounded-2xl overflow-hidden relative aspect-[16/8]">
-          <img 
-            src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&q=80&w=2000" 
-            alt="Explore Paradise" 
-            className="w-full h-full object-cover"
-          />
+          <style>{`
+			@keyframes kenburns {
+				0% { transform: scale(1) translateX(0px); }
+				100% { transform: scale(1.15) translateX(-20px); }
+			}
+		`}</style>
+		<img 
+			src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&q=80&w=2000" 
+			alt="Explore Paradise" 
+			className="w-full h-full object-cover"
+			style={{ animation: "kenburns 8s ease-in-out infinite alternate" }}
+		/>
+       
           
           <div className="absolute bottom-6 left-6 text-white">
             <p className="text-[10px] font-bold uppercase tracking-widest opacity-80">Featured Destination</p>
