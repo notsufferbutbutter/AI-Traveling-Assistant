@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useCallback, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { usePersistedState } from '@/hooks/usePersistedState'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 type Feeling =
   | 'energetic'
@@ -149,7 +150,7 @@ function SelectableChip({
       className={`px-3.5 py-2 rounded-xl border text-sm transition-colors ${
         selected
           ? 'bg-[#7469C4] text-white border-[#7469C4] shadow-sm'
-          : 'bg-white text-slate-600 border-slate-200 hover:border-[#9B92D8] hover:bg-[#F2F0FD]'
+          : 'bg-white dark:bg-gray-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-gray-700 hover:border-[#9B92D8] hover:bg-[#F2F0FD] dark:hover:bg-[#1E1B33]'
       }`}
     >
       {label}
@@ -159,15 +160,15 @@ function SelectableChip({
 
 function PlaceRow({ place, onRemove }: { place: VisitedPlace; onRemove: () => void }) {
   return (
-    <div className="flex items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm">
+    <div className="flex items-center justify-between gap-3 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-2.5 shadow-sm">
       <div className="flex items-center gap-3 min-w-0">
-        <div className="w-8 h-8 rounded-lg bg-[#F2F0FD] flex items-center justify-center text-[#7469C4] shrink-0">
+        <div className="w-8 h-8 rounded-lg bg-[#F2F0FD] dark:bg-[#1E1B33] flex items-center justify-center text-[#7469C4] shrink-0">
           <Icon name="map-pin" />
         </div>
         <div className="min-w-0">
-          <p className="text-sm text-slate-800 font-medium truncate">{place.name}</p>
+          <p className="text-sm text-slate-800 dark:text-slate-200 font-medium truncate">{place.name}</p>
           <p className="text-xs text-slate-400 flex items-center gap-2">
-            <span className="px-1.5 py-0.5 rounded-md bg-[#F2F0FD] text-[#7469C4] font-medium">
+            <span className="px-1.5 py-0.5 rounded-md bg-[#F2F0FD] dark:bg-[#1E1B33] text-[#7469C4] font-medium">
               {place.category}
             </span>
             <span className="flex items-center gap-1">
@@ -361,12 +362,12 @@ End with a short section titled "Why These Match You".`
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F4FD] text-slate-900">
-      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-slate-200 px-4 md:px-6 py-3">
+    <div className="min-h-screen bg-[#F5F4FD] dark:bg-gray-950 text-slate-900 dark:text-gray-100">
+      <header className="sticky top-0 z-30 bg-white/90 dark:bg-gray-900/90 backdrop-blur border-b border-slate-200 dark:border-gray-800 px-4 md:px-6 py-3">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <Link href="/" className="p-2 rounded-xl hover:bg-slate-100 transition-colors" aria-label="Back home">
-              <Icon name="arrow-left" className="w-5 h-5 text-slate-600" />
+            <Link href="/" className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors" aria-label="Back home">
+              <Icon name="arrow-left" className="w-5 h-5 text-slate-600 dark:text-slate-400" />
             </Link>
             <div className="w-9 h-9 rounded-xl bg-[#7469C4] flex items-center justify-center text-white shrink-0">
               <Icon name="compass" className="w-5 h-5" />
@@ -377,17 +378,18 @@ End with a short section titled "Why These Match You".`
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             <button
               type="button"
               onClick={resetAll}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-[#7469C4] hover:bg-[#F2F0FD] transition-colors shrink-0"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-[#7469C4] hover:bg-[#F2F0FD] dark:hover:bg-gray-800 transition-colors shrink-0"
               aria-label="Reset"
             >
               <Icon name="refresh" />
             </button>
             <Link
               href="/plan"
-              className="hidden sm:flex items-center gap-2 px-4 py-2 bg-[#F2F0FD] text-[#5E54A8] rounded-xl hover:bg-[#E7E4FA] transition-colors text-sm font-medium"
+              className="hidden sm:flex items-center gap-2 px-4 py-2 bg-[#F2F0FD] dark:bg-[#1E1B33] text-[#5E54A8] dark:text-[#9B92D8] rounded-xl hover:bg-[#E7E4FA] dark:hover:bg-[#252240] transition-colors text-sm font-medium"
             >
               <Icon name="sparkles" />
               Plan a Trip
@@ -414,14 +416,14 @@ End with a short section titled "Why These Match You".`
           </div>
         </section>
 
-        <section className="bg-white rounded-xl p-4 border border-slate-100 flex items-center justify-between shadow-sm">
+        <section className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-slate-100 dark:border-gray-800 flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-sky-50 flex items-center justify-center text-sky-500 text-xl">
               ☁
             </div>
             <div>
               <p className="text-sm text-slate-500">Current Weather</p>
-              <p className="text-xl text-slate-800 font-bold">
+              <p className="text-xl text-slate-800 dark:text-slate-200 font-bold">
                 {weather.temp} C <span className="text-sm text-slate-500 font-normal">{weather.condition}</span>
               </p>
             </div>
@@ -442,7 +444,7 @@ End with a short section titled "Why These Match You".`
               value={currentLocation}
               onChange={event => setCurrentLocation(event.target.value)}
               placeholder="e.g. Shibuya, Tokyo or Paris, France..."
-              className="w-full pl-10 pr-11 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C9C3F0] focus:border-[#9B92D8] text-sm"
+              className="w-full pl-10 pr-11 py-3 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C9C3F0] focus:border-[#9B92D8] text-sm dark:text-gray-100"
             />
             <button
               type="button"
@@ -491,13 +493,13 @@ End with a short section titled "Why These Match You".`
                 onChange={event => setPlaceInput(event.target.value)}
                 onKeyDown={event => event.key === 'Enter' && addPlace()}
                 placeholder="Spot name"
-                className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C9C3F0] focus:border-[#9B92D8] text-sm"
+                className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C9C3F0] focus:border-[#9B92D8] text-sm dark:text-gray-100"
               />
             </div>
             <select
               value={categoryInput}
               onChange={event => setCategoryInput(event.target.value as PlaceCategory)}
-              className="sm:w-44 px-3 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C9C3F0] focus:border-[#9B92D8] text-sm"
+              className="sm:w-44 px-3 py-3 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C9C3F0] focus:border-[#9B92D8] text-sm dark:text-gray-100"
             >
               {PLACE_CATEGORIES.map(category => (
                 <option key={category} value={category}>
@@ -510,7 +512,7 @@ End with a short section titled "Why These Match You".`
               onChange={event => setDurationInput(event.target.value)}
               onKeyDown={event => event.key === 'Enter' && addPlace()}
               placeholder="Duration"
-              className="sm:w-40 px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C9C3F0] focus:border-[#9B92D8] text-sm"
+              className="sm:w-40 px-4 py-3 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C9C3F0] focus:border-[#9B92D8] text-sm dark:text-gray-100"
             />
             <button
               type="button"
@@ -524,7 +526,7 @@ End with a short section titled "Why These Match You".`
           </div>
 
           {visitedPlaces.length > 0 ? (
-            <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
+            <div className="bg-slate-50 dark:bg-gray-900 border border-slate-100 dark:border-gray-800 rounded-xl p-3">
               <p className="text-xs text-slate-400 mb-2 font-medium">
                 Travel history ({visitedPlaces.length}) excluded from recommendations
               </p>
@@ -556,7 +558,7 @@ End with a short section titled "Why These Match You".`
                   type="button"
                   onClick={() => setFeeling(option.key)}
                   className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-colors ${
-                    selected ? option.className : 'bg-white border-slate-100 hover:border-slate-200 text-slate-500'
+                    selected ? option.className : 'bg-white dark:bg-gray-800 border-slate-100 dark:border-gray-700 hover:border-slate-200 dark:hover:border-gray-600 text-slate-500 dark:text-slate-400'
                   }`}
                 >
                   <span className="text-2xl">{option.emoji}</span>
@@ -608,7 +610,7 @@ End with a short section titled "Why These Match You".`
             onChange={event => setAdditionalNotes(event.target.value)}
             placeholder="e.g. I am solo, I want great coffee, I prefer fewer tourists..."
             rows={3}
-            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C9C3F0] focus:border-[#9B92D8] text-sm resize-none"
+            className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C9C3F0] focus:border-[#9B92D8] text-sm dark:text-gray-100 resize-none"
           />
         </section>
 
@@ -639,32 +641,32 @@ End with a short section titled "Why These Match You".`
         </section>
 
         {suggestions && (
-          <section className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          <section className="bg-white dark:bg-gray-900 rounded-2xl border border-slate-100 dark:border-gray-800 shadow-sm overflow-hidden">
             <div className="bg-[#7469C4] px-6 py-4 flex items-center gap-3">
               <Icon name="sparkles" className="w-5 h-5 text-white" />
               <h2 className="text-white text-lg font-bold">Your Personalized Suggestions</h2>
             </div>
-            <div className="px-6 py-5 text-sm text-slate-700 leading-relaxed">
+            <div className="px-6 py-5 text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
               <ReactMarkdown
                 components={{
-                  h1: ({ children }) => <h3 className="text-xl font-bold text-slate-900 mt-4 mb-2 first:mt-0">{children}</h3>,
-                  h2: ({ children }) => <h3 className="text-lg font-bold text-slate-900 mt-4 mb-2 first:mt-0">{children}</h3>,
-                  h3: ({ children }) => <h4 className="text-base font-semibold text-[#5E54A8] mt-3 mb-1">{children}</h4>,
+                  h1: ({ children }) => <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-4 mb-2 first:mt-0">{children}</h3>,
+                  h2: ({ children }) => <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-4 mb-2 first:mt-0">{children}</h3>,
+                  h3: ({ children }) => <h4 className="text-base font-semibold text-[#5E54A8] dark:text-[#9B92D8] mt-3 mb-1">{children}</h4>,
                   p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
                   ul: ({ children }) => <ul className="list-disc pl-5 mb-3 space-y-1">{children}</ul>,
                   ol: ({ children }) => <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>,
-                  strong: ({ children }) => <strong className="font-semibold text-slate-900">{children}</strong>,
+                  strong: ({ children }) => <strong className="font-semibold text-slate-900 dark:text-slate-100">{children}</strong>,
                 }}
               >
                 {suggestions}
               </ReactMarkdown>
             </div>
-            <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row gap-3">
+            <div className="px-6 py-4 border-t border-slate-100 dark:border-gray-800 flex flex-col sm:flex-row gap-3">
               <button
                 type="button"
                 onClick={handleGenerate}
                 disabled={isGenerating}
-                className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors text-sm text-slate-600 font-medium disabled:opacity-40"
+                className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 hover:bg-slate-50 dark:hover:bg-gray-800 transition-colors text-sm text-slate-600 dark:text-slate-400 font-medium disabled:opacity-40"
               >
                 <Icon name="refresh" />
                 Regenerate
