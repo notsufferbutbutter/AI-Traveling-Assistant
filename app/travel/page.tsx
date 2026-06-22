@@ -90,7 +90,7 @@ function Icon({
   name,
   className = 'w-4 h-4',
 }: {
-  name: 'arrow-left' | 'compass' | 'map-pin' | 'plus' | 'sparkles' | 'refresh' | 'x' | 'clock' | 'skip' | 'check'
+  name: 'arrow-left' | 'compass' | 'map-pin' | 'plus' | 'sparkles' | 'refresh' | 'x' | 'clock' | 'skip' | 'check' | 'locate'
   className?: string
 }) {
   const paths = {
@@ -120,6 +120,12 @@ function Icon({
     // UC13: neue Icons
     skip: <path d="M5 12h14M12 5l7 7-7 7" />,
     check: <path d="M20 6L9 17l-5-5" />,
+    locate: (
+      <>
+        <circle cx="12" cy="12" r="3" />
+        <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+      </>
+    ),
   }
 
   return (
@@ -234,6 +240,7 @@ export default function TravelPage() {
   const [currentLocation, setCurrentLocation] = usePersistedState<string>('travel_location', '')
   const [additionalNotes, setAdditionalNotes] = usePersistedState<string>('travel_notes', '')
   const [isGenerating, setIsGenerating] = useState(false)
+  const [locating, setLocating] = useState(false)
 
   // UC13: Empfehlungen als einzelne Karten statt einem String
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
@@ -477,13 +484,13 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
 
   // Markdown-Render-Komponenten (wiederverwendet)
   const mdComponents = {
-    h1: ({ children }: { children: React.ReactNode }) => <h3 className="text-xl font-bold text-slate-900 mt-4 mb-2 first:mt-0">{children}</h3>,
-    h2: ({ children }: { children: React.ReactNode }) => <h3 className="text-lg font-bold text-slate-900 mt-4 mb-2 first:mt-0">{children}</h3>,
-    h3: ({ children }: { children: React.ReactNode }) => <h4 className="text-base font-semibold text-[#5E54A8] mt-3 mb-1">{children}</h4>,
-    p: ({ children }: { children: React.ReactNode }) => <p className="mb-2 last:mb-0">{children}</p>,
-    ul: ({ children }: { children: React.ReactNode }) => <ul className="list-disc pl-5 mb-3 space-y-1">{children}</ul>,
-    ol: ({ children }: { children: React.ReactNode }) => <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>,
-    strong: ({ children }: { children: React.ReactNode }) => <strong className="font-semibold text-slate-900">{children}</strong>,
+    h1: ({ children }: { children?: React.ReactNode }) => <h3 className="text-xl font-bold text-slate-900 mt-4 mb-2 first:mt-0">{children}</h3>,
+    h2: ({ children }: { children?: React.ReactNode }) => <h3 className="text-lg font-bold text-slate-900 mt-4 mb-2 first:mt-0">{children}</h3>,
+    h3: ({ children }: { children?: React.ReactNode }) => <h4 className="text-base font-semibold text-[#5E54A8] mt-3 mb-1">{children}</h4>,
+    p: ({ children }: { children?: React.ReactNode }) => <p className="mb-2 last:mb-0">{children}</p>,
+    ul: ({ children }: { children?: React.ReactNode }) => <ul className="list-disc pl-5 mb-3 space-y-1">{children}</ul>,
+    ol: ({ children }: { children?: React.ReactNode }) => <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>,
+    strong: ({ children }: { children?: React.ReactNode }) => <strong className="font-semibold text-slate-900">{children}</strong>,
   }
 
   async function getDeviceLocation() {
