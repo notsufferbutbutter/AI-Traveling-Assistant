@@ -281,7 +281,7 @@ export default function PlanPage() {
       })
       const data = await res.json()
       if (!res.ok) {
-        addBotMessage(`Error: ${data.error}`)
+        addBotMessage("WanderAI couldn't generate suggestions right now. Please try again in a moment.")
         return
       }
       setGeminiMessages([userMsg, { role: 'assistant', content: data.content }])
@@ -290,7 +290,7 @@ export default function PlanPage() {
         setTimeout(() => addBotMessage('Anything else you want to explore?'), 500)
       })
     } catch {
-      addBotMessage('Sorry, something went wrong. Please try again!')
+      addBotMessage("WanderAI couldn't generate suggestions right now. Please try again in a moment.")
     } finally {
       setIsLoading(false)
     }
@@ -307,13 +307,13 @@ export default function PlanPage() {
       })
       const data = await res.json()
       if (!res.ok) {
-        addBotMessage(`Error: ${data.error}`)
+        addBotMessage("WanderAI couldn't generate suggestions right now. Please try again in a moment.")
         return
       }
       splitAndAddBotMessages(data.content)
       setGeminiMessages([...newMessages, { role: 'assistant', content: data.content }])
     } catch (err) {
-      addBotMessage(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      addBotMessage("WanderAI couldn't generate suggestions right now. Please try again in a moment.")
     } finally {
       setIsLoading(false)
     }
@@ -577,7 +577,7 @@ export default function PlanPage() {
 
         {/* US8: Edit Panel Overlay */}
         {showEditPanel && (
-          <div className="absolute inset-0 z-40 bg-white flex flex-col">
+          <div className="absolute inset-0 z-40 bg-white dark:bg-gray-900 flex flex-col">
             <div className="bg-[#7469C4] px-4 py-3 flex items-center gap-3 shrink-0">
               <button
                 onClick={() => setShowEditPanel(false)}
@@ -595,15 +595,15 @@ export default function PlanPage() {
             </div>
             <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
               {STEPS.map(step => (
-                <div key={step.field} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                  <label className="text-xs text-slate-500 font-semibold uppercase tracking-wide mb-2 block">
+                <div key={step.field} className="bg-slate-50 dark:bg-gray-800 rounded-xl p-3 border border-slate-100 dark:border-gray-700">
+                  <label className="text-xs text-slate-500 dark:text-gray-400 font-semibold uppercase tracking-wide mb-2 block">
                     {STEP_LABELS[step.field]}
                   </label>
                   <input
                     type="text"
                     value={preferences[step.field as keyof TravelPreferences] ?? ''}
                     onChange={e => setPreferences(prev => ({ ...prev, [step.field]: e.target.value }))}
-                    className="w-full text-sm px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9C3F0]"
+                    className="w-full text-sm px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-slate-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9C3F0] placeholder:text-gray-400 dark:placeholder:text-gray-500"
                   />
                 </div>
               ))}
