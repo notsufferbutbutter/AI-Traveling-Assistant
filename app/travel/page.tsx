@@ -1245,24 +1245,42 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
               {savedSuggestions.length === 0 ? (
                 <p className="text-sm text-slate-400 text-center mt-8">Nothing saved yet.</p>
               ) : (
-                savedSuggestions.map((s, i) => (
-                  <div key={s.id} className="bg-white dark:bg-gray-800 border border-slate-100 dark:border-gray-700 rounded-2xl shadow-sm overflow-hidden">
-                    <div className="px-4 py-2.5 bg-[#F2F0FD] dark:bg-[#1E1B33] border-b border-[#E7E4FA] dark:border-[#2A2550] flex items-center justify-between">
-                      <span className="text-xs font-bold text-[#7469C4]">#{i + 1}</span>
-                      <button
-                        type="button"
-                        onClick={() => setSavedSuggestions(prev => prev.filter(x => x.id !== s.id))}
-                        className="text-slate-400 hover:text-red-400 transition-colors"
-                        aria-label="Remove"
-                      >
-                        <Icon name="x" className="w-3.5 h-3.5" />
-                      </button>
+                savedSuggestions.map((s, i) => {
+                  const nameMatch = s.content.match(/\*\*([^*]+)\*\*/)
+                  const placeName = nameMatch?.[1]?.trim()
+                  const mapsQuery = encodeURIComponent(placeName ? `${placeName}, ${currentLocation}` : currentLocation)
+                  return (
+                    <div key={s.id} className="bg-white dark:bg-gray-800 border border-slate-100 dark:border-gray-700 rounded-2xl shadow-sm overflow-hidden">
+                      <div className="px-4 py-2.5 bg-[#F2F0FD] dark:bg-[#1E1B33] border-b border-[#E7E4FA] dark:border-[#2A2550] flex items-center justify-between">
+                        <span className="text-xs font-bold text-[#7469C4]">#{i + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => setSavedSuggestions(prev => prev.filter(x => x.id !== s.id))}
+                          className="text-slate-400 hover:text-red-400 transition-colors"
+                          aria-label="Remove"
+                        >
+                          <Icon name="x" className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <div className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                        {s.content}
+                      </div>
+                      {placeName && (
+                        <div className="px-4 pb-3 border-t border-slate-100 dark:border-gray-700 pt-2">
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${mapsQuery}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-xs text-[#7469C4] dark:text-[#9B92D8] hover:text-[#5E54A8] font-medium transition-colors"
+                          >
+                            <Icon name="map-pin" className="w-3.5 h-3.5" />
+                            View on Google Maps
+                          </a>
+                        </div>
+                      )}
                     </div>
-                    <div className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
-                      {s.content}
-                    </div>
-                  </div>
-                ))
+                  )
+                })
               )}
             </div>
 
