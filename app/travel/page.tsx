@@ -30,6 +30,13 @@ interface VisitedPlace {
   duration: string
 }
 
+// UC13: Eine einzelne Empfehlung
+interface Suggestion {
+  id: string
+  content: string
+  skipped: boolean
+}
+
 const PLACE_CATEGORIES: PlaceCategory[] = [
   'Restaurant',
   'Activity',
@@ -83,7 +90,7 @@ function Icon({
   name,
   className = 'w-4 h-4',
 }: {
-  name: 'arrow-left' | 'compass' | 'map-pin' | 'plus' | 'sparkles' | 'refresh' | 'x' | 'clock' | 'locate'
+  name: 'arrow-left' | 'compass' | 'map-pin' | 'plus' | 'sparkles' | 'refresh' | 'x' | 'clock' | 'skip' | 'check'
   className?: string
 }) {
   const paths = {
@@ -110,12 +117,9 @@ function Icon({
         <path d="M12 6v6l4 2" />
       </>
     ),
-    locate: (
-      <>
-        <circle cx="12" cy="12" r="3" />
-        <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
-      </>
-    ),
+    // UC13: neue Icons
+    skip: <path d="M5 12h14M12 5l7 7-7 7" />,
+    check: <path d="M20 6L9 17l-5-5" />,
   }
 
   return (
@@ -200,6 +204,24 @@ function getLocalWeather() {
   }
 }
 
+// UC13: Hilfsfunktion — teilt Gemini-Text in 3 Empfehlungen auf
+function splitSuggestions(text: string): string[] {
+  // Versuche bei nummerierten Überschriften zu trennen (## 1. oder **1.** oder 1.)
+  const byNumberedHeading = text.split(/\n(?=##\s*\d+\.|\*\*\d+\.|(?<!\S)\d+\.\s+\*\*)/)
+  if (byNumberedHeading.length >= 3) {
+    return byNumberedHeading.slice(0, 3).map(s => s.trim()).filter(Boolean)
+  }
+
+  // Fallback: bei doppeltem Zeilenumbruch + Ziffer trennen
+  const byNewline = text.split(/\n{2,}(?=\d+\.)/)
+  if (byNewline.length >= 3) {
+    return byNewline.slice(0, 3).map(s => s.trim()).filter(Boolean)
+  }
+
+  // Letzter Fallback: gesamten Text als eine Karte
+  return [text]
+}
+
 export default function TravelPage() {
   const [visitedPlaces, setVisitedPlaces] = usePersistedState<VisitedPlace[]>('travel_visited_places', [])
   const [placeInput, setPlaceInput] = useState('')
@@ -212,11 +234,18 @@ export default function TravelPage() {
   const [currentLocation, setCurrentLocation] = usePersistedState<string>('travel_location', '')
   const [additionalNotes, setAdditionalNotes] = usePersistedState<string>('travel_notes', '')
   const [isGenerating, setIsGenerating] = useState(false)
-  const [suggestions, setSuggestions] = useState<string | null>(null)
-  const [locating, setLocating] = useState(false)
+
+  // UC13: Empfehlungen als einzelne Karten statt einem String
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
+  const [whySection, setWhySection] = useState<string>('')
+  const [consecutiveSkips, setConsecutiveSkips] = useState(0)
+  const [showPrefsChangedHint, setShowPrefsChangedHint] = useState(false)
 
   const weather = getLocalWeather()
   const canGenerate = currentLocation.trim().length > 0 && feeling !== null && selectedPrefs.length > 0
+
+  // UC13: Zählt wie viele Empfehlungen noch aktiv (nicht übersprungen) sind
+  const activeSuggestions = suggestions.filter(s => !s.skipped)
 
   function addPlace() {
     if (!placeInput.trim()) return
@@ -239,20 +268,103 @@ export default function TravelPage() {
     )
   }
 
+  // UC13: Empfehlung überspringen
+  async function handleSkip(id: string) {
+    setSuggestions(prev =>
+      prev.map(s => s.id === id ? { ...s, skipped: true } : s)
+    )
+
+    const newSkips = consecutiveSkips + 1
+    setConsecutiveSkips(newSkips)
+
+    // Nach 3 aufeinanderfolgenden Überspringungen: Hinweis anzeigen
+    if (newSkips >= 3) {
+      setShowPrefsChangedHint(true)
+      setConsecutiveSkips(0)
+      return
+    }
+
+    // Neue einzelne Empfehlung nachladen
+    await fetchReplacementSuggestion()
+  }
+
+  // UC13: Eine neue Ersatz-Empfehlung von Gemini laden
+  const fetchReplacementSuggestion = useCallback(async () => {
+    setIsGenerating(true)
+    const destination = currentLocation.trim()
+
+    const skippedTexts = suggestions
+      .filter(s => s.skipped)
+      .map(s => s.content)
+      .join(' | ')
+
+    const prompt = `Based on my travel preferences, suggest ONE new place or experience near ${destination}.
+
+IMPORTANT: Do NOT suggest anything similar to these already skipped suggestions: ${skippedTexts}
+
+Also do not suggest any of these visited places:
+${visitedPlaces.length > 0 ? visitedPlaces.map(p => `- ${p.name}`).join('\n') : '- None'}
+
+How I am feeling: ${feeling}
+What I am looking for: ${selectedPrefs.join(', ')}
+Budget: ${selectedBudget || 'Mid-Range'}
+Radius: ${selectedRadius}
+Weather: ${weather.temp}°C, ${weather.condition}
+
+Give me exactly ONE new suggestion (different from everything above) with:
+- Why it matches my mood
+- Best time to go
+- What to do there
+- Distance from ${destination}
+- Budget range
+- One practical tip`
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: prompt }],
+          preferences: {
+            origin: destination,
+            destination,
+            budget: selectedBudget === 'Luxury' ? 'luxury' : selectedBudget === 'Budget' ? 'tight' : 'medium',
+            activities: selectedPrefs.join(', '),
+            travelStyle: feeling || 'not specified',
+          },
+        }),
+      })
+      const data = await response.json()
+      if (response.ok && data.content) {
+        const newSuggestion: Suggestion = {
+          id: crypto.randomUUID(),
+          content: data.content,
+          skipped: false,
+        }
+        setSuggestions(prev => [...prev, newSuggestion])
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      setIsGenerating(false)
+    }
+  }, [currentLocation, feeling, selectedPrefs, selectedBudget, selectedRadius, suggestions, visitedPlaces, weather])
+
   const handleGenerate = useCallback(async () => {
     if (!canGenerate) return
     setIsGenerating(true)
-    setSuggestions(null)
+    setSuggestions([])
+    setWhySection('')
+    setConsecutiveSkips(0)
+    setShowPrefsChangedHint(false)
 
     const destination = currentLocation.trim()
     const prompt = `Based on my travel history and current preferences, suggest where I should go next from ${destination}.
 
-IMPORTANT RADIUS RULE: Only recommend real places within "${selectedRadius}" from ${destination}. Recommendations can be inside the current city or outside the current city only if they fit inside this selected radius. Do not recommend a place that is farther away than "${selectedRadius}". If the destination is not specific enough to apply the radius, ask me for a more specific current city or address instead of guessing.
+IMPORTANT RADIUS RULE: Only recommend real places within "${selectedRadius}" from ${destination}.
 
-Local spots I have already visited near my current location. Do not recommend any of these:
+Local spots I have already visited. Do not recommend any of these:
 ${visitedPlaces.length > 0 ? visitedPlaces.map(place => `- ${place.name} [${place.category}], spent ${place.duration}`).join('\n') : '- None specified'}
-
-Exclude every place listed above from your recommendations. Use them only to understand my taste and suggest fresh, different places within "${selectedRadius}" from ${destination}.
 
 How I am feeling right now: ${feeling}
 
@@ -260,13 +372,12 @@ What I am looking for next:
 ${selectedPrefs.map(pref => `- ${pref}`).join('\n')}
 
 Budget level: ${selectedBudget || 'Mid-Range'}
-My current destination: ${destination}
 Recommendation radius: ${selectedRadius}
 ${additionalNotes ? `Additional notes: ${additionalNotes}` : ''}
 
 Current local weather: ${weather.temp} C, ${weather.condition}, ${weather.humidity}% humidity, wind ${weather.wind} km/h
 
-Suggest 3 places or experiences within "${selectedRadius}" from ${destination} that would be perfect for me right now. For each one include:
+Suggest exactly 3 places or experiences. Number each one clearly as "1.", "2.", "3." on a new line. For each include:
 - Why it matches my mood and preferences
 - Best time to go today
 - What to do there
@@ -274,7 +385,7 @@ Suggest 3 places or experiences within "${selectedRadius}" from ${destination} t
 - Estimated budget range
 - One practical tip
 
-End with a short section titled "Why These Match You".`
+After the 3 suggestions, add a short section titled "## Why These Match You".`
 
     try {
       const response = await fetch('/api/chat', {
@@ -299,13 +410,34 @@ End with a short section titled "Why These Match You".`
       const data = await response.json()
 
       if (!response.ok) {
-        setSuggestions(`Error: ${data.error || 'Could not generate recommendations.'}`)
+        setSuggestions([{
+          id: crypto.randomUUID(),
+          content: `Error: ${data.error || 'Could not generate recommendations.'}`,
+          skipped: false,
+        }])
         return
       }
 
-      setSuggestions(data.content || 'No suggestions were returned. Please try again.')
+      const fullText: string = data.content || ''
+
+      // UC13: "Why These Match You" Abschnitt trennen
+      const whyMatch = fullText.match(/##\s*Why These Match You[\s\S]*/i)
+      const mainText = whyMatch ? fullText.slice(0, whyMatch.index) : fullText
+      setWhySection(whyMatch ? whyMatch[0] : '')
+
+      // UC13: In 3 Einzelkarten aufteilen
+      const parts = splitSuggestions(mainText)
+      setSuggestions(parts.map(content => ({
+        id: crypto.randomUUID(),
+        content,
+        skipped: false,
+      })))
     } catch (error) {
-      setSuggestions(`Error: ${error instanceof Error ? error.message : 'Something went wrong.'}`)
+      setSuggestions([{
+        id: crypto.randomUUID(),
+        content: `Error: ${error instanceof Error ? error.message : 'Something went wrong.'}`,
+        skipped: false,
+      }])
     } finally {
       setIsGenerating(false)
     }
@@ -335,7 +467,23 @@ End with a short section titled "Why These Match You".`
     setSelectedBudget(null)
     setCurrentLocation('')
     setAdditionalNotes('')
-    setSuggestions(null)
+    setSuggestions([])
+    setWhySection('')
+    setConsecutiveSkips(0)
+    setShowPrefsChangedHint(false)
+  }
+
+  const hasSuggestions = suggestions.length > 0
+
+  // Markdown-Render-Komponenten (wiederverwendet)
+  const mdComponents = {
+    h1: ({ children }: { children: React.ReactNode }) => <h3 className="text-xl font-bold text-slate-900 mt-4 mb-2 first:mt-0">{children}</h3>,
+    h2: ({ children }: { children: React.ReactNode }) => <h3 className="text-lg font-bold text-slate-900 mt-4 mb-2 first:mt-0">{children}</h3>,
+    h3: ({ children }: { children: React.ReactNode }) => <h4 className="text-base font-semibold text-[#5E54A8] mt-3 mb-1">{children}</h4>,
+    p: ({ children }: { children: React.ReactNode }) => <p className="mb-2 last:mb-0">{children}</p>,
+    ul: ({ children }: { children: React.ReactNode }) => <ul className="list-disc pl-5 mb-3 space-y-1">{children}</ul>,
+    ol: ({ children }: { children: React.ReactNode }) => <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>,
+    strong: ({ children }: { children: React.ReactNode }) => <strong className="font-semibold text-slate-900">{children}</strong>,
   }
 
   async function getDeviceLocation() {
@@ -640,28 +788,113 @@ End with a short section titled "Why These Match You".`
           )}
         </section>
 
-        {suggestions && (
-          <section className="bg-white dark:bg-gray-900 rounded-2xl border border-slate-100 dark:border-gray-800 shadow-sm overflow-hidden">
-            <div className="bg-[#7469C4] px-6 py-4 flex items-center gap-3">
+        {/* UC13: Empfehlungen als einzelne Karten */}
+        {hasSuggestions && (
+          <section className="space-y-4">
+            <div className="bg-[#7469C4] px-6 py-4 rounded-2xl flex items-center gap-3">
               <Icon name="sparkles" className="w-5 h-5 text-white" />
-              <h2 className="text-white text-lg font-bold">Your Personalized Suggestions</h2>
+              <h2 className="text-white text-lg font-bold">Deine personalisierten Vorschläge</h2>
+              {activeSuggestions.length < suggestions.filter(s => !s.skipped || true).length && (
+                <span className="ml-auto text-white/70 text-xs">
+                  {activeSuggestions.length} aktiv
+                </span>
+              )}
             </div>
-            <div className="px-6 py-5 text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-              <ReactMarkdown
-                components={{
-                  h1: ({ children }) => <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-4 mb-2 first:mt-0">{children}</h3>,
-                  h2: ({ children }) => <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-4 mb-2 first:mt-0">{children}</h3>,
-                  h3: ({ children }) => <h4 className="text-base font-semibold text-[#5E54A8] dark:text-[#9B92D8] mt-3 mb-1">{children}</h4>,
-                  p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                  ul: ({ children }) => <ul className="list-disc pl-5 mb-3 space-y-1">{children}</ul>,
-                  ol: ({ children }) => <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>,
-                  strong: ({ children }) => <strong className="font-semibold text-slate-900 dark:text-slate-100">{children}</strong>,
-                }}
+
+            {/* UC13: Hinweis nach 3 Überspringungen */}
+            {showPrefsChangedHint && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">
+                <span className="text-xl">🤔</span>
+                <div>
+                  <p className="text-sm font-semibold text-amber-800">Haben sich deine Präferenzen geändert?</p>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    Du hast bereits 3 Empfehlungen übersprungen. Scrolle nach oben und passe deine Stimmung oder Vorlieben an, oder generiere neu.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowPrefsChangedHint(false)}
+                  className="ml-auto text-amber-400 hover:text-amber-600"
+                >
+                  <Icon name="x" className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* UC13: Einzelne Empfehlungskarten */}
+            {suggestions.map((suggestion, index) => (
+              <div
+                key={suggestion.id}
+                className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-all ${
+                  suggestion.skipped
+                    ? 'opacity-40 border-slate-100'
+                    : 'border-slate-100'
+                }`}
               >
-                {suggestions}
-              </ReactMarkdown>
-            </div>
-            <div className="px-6 py-4 border-t border-slate-100 dark:border-gray-800 flex flex-col sm:flex-row gap-3">
+                {/* Karten-Header */}
+                <div className={`px-5 py-3 flex items-center gap-2 border-b ${suggestion.skipped ? 'bg-slate-50 border-slate-100' : 'bg-[#F2F0FD] border-[#E7E4FA]'}`}>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${suggestion.skipped ? 'bg-slate-200 text-slate-400' : 'bg-[#7469C4] text-white'}`}>
+                    #{index + 1}
+                  </span>
+                  <span className="text-xs font-semibold text-slate-500 flex-1">
+                    {suggestion.skipped ? 'Übersprungen' : 'Empfehlung'}
+                  </span>
+                  {suggestion.skipped && (
+                    <span className="text-xs text-slate-400 flex items-center gap-1">
+                      <Icon name="skip" className="w-3 h-3" />
+                      Abgelehnt
+                    </span>
+                  )}
+                </div>
+
+                {/* Karten-Inhalt */}
+                <div className="px-5 py-4 text-sm text-slate-700 leading-relaxed">
+                  <ReactMarkdown components={mdComponents}>
+                    {suggestion.content}
+                  </ReactMarkdown>
+                </div>
+
+                {/* UC13: Aktions-Buttons — nur wenn nicht übersprungen */}
+                {!suggestion.skipped && (
+                  <div className="px-5 py-3 border-t border-slate-100 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleSkip(suggestion.id)}
+                      disabled={isGenerating}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 text-sm text-slate-500 hover:border-red-200 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+                    >
+                      <Icon name="x" className="w-4 h-4" />
+                      Ablehnen
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isGenerating}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-[#C9C3F0] text-sm text-[#5E54A8] hover:bg-[#F2F0FD] transition-colors disabled:opacity-40"
+                    >
+                      <Icon name="check" className="w-4 h-4" />
+                      Merken
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Lädt neue Ersatz-Empfehlung */}
+            {isGenerating && suggestions.some(s => s.skipped) && (
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 flex items-center gap-3">
+                <span className="w-5 h-5 rounded-full border-2 border-[#9B92D8] border-t-[#7469C4] animate-spin shrink-0" />
+                <p className="text-sm text-slate-500">Neue Empfehlung wird geladen...</p>
+              </div>
+            )}
+
+            {/* UC13: "Why These Match You" Abschnitt */}
+            {whySection && activeSuggestions.length > 0 && (
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 text-sm text-slate-700">
+                <ReactMarkdown components={mdComponents}>{whySection}</ReactMarkdown>
+              </div>
+            )}
+
+            {/* Footer-Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3">
               <button
                 type="button"
                 onClick={handleGenerate}
@@ -669,13 +902,13 @@ End with a short section titled "Why These Match You".`
                 className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 hover:bg-slate-50 dark:hover:bg-gray-800 transition-colors text-sm text-slate-600 dark:text-slate-400 font-medium disabled:opacity-40"
               >
                 <Icon name="refresh" />
-                Regenerate
+                Alle neu generieren
               </button>
               <Link
                 href="/plan"
                 className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#7469C4] text-white hover:bg-[#5E54A8] transition-colors text-sm font-medium"
               >
-                Plan a Full Trip
+                Komplette Reise planen
               </Link>
             </div>
           </section>
