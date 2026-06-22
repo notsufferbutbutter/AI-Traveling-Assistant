@@ -1,13 +1,14 @@
 'use client'
 
 import Link from "next/link";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-white text-zinc-900 font-sans">
+    <div className="min-h-screen bg-white dark:bg-gray-950 text-zinc-900 dark:text-gray-100 font-sans">
       
       {/* 1. Header */}
-      <header className="flex items-center justify-between px-6 py-5 max-w-7xl mx-auto w-full bg-white">
+      <header className="flex items-center justify-between px-6 py-5 max-w-7xl mx-auto w-full bg-white dark:bg-gray-950">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-[#7469C4] rounded-full flex items-center justify-center text-white">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -16,30 +17,33 @@ export default function Home() {
           </div>
           <span className="font-bold text-lg">WanderAI</span>
         </div>
-        <Link href="/plan" className="bg-[#7469C4] text-white text-sm font-semibold px-5 py-2 rounded-full hover:bg-[#5E54A8] transition-colors">
-          Start Planning
-        </Link>
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
+          <Link href="/plan" className="bg-[#7469C4] text-white text-sm font-semibold px-5 py-2 rounded-full hover:bg-[#5E54A8] transition-colors">
+            Start Planning
+          </Link>
+        </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-6 flex flex-col items-center gap-20 pb-20">
         
         {/* 2. Hero Section */}
         <section className="pt-10 text-center flex flex-col items-center gap-5">
-          <div className="bg-[#F2F0FD] text-[#5E54A8] text-[10px] font-bold px-3 py-1 rounded-full border border-[#C9C3F0] uppercase tracking-wider">
+          <div className="bg-[#F2F0FD] dark:bg-[#1E1B33] text-[#5E54A8] dark:text-[#9B92D8] text-[10px] font-bold px-3 py-1 rounded-full border border-[#C9C3F0] dark:border-[#3D3870] uppercase tracking-wider">
              ✨ Powered by Gemini AI
           </div>
-          <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight text-zinc-900 leading-tight">
+          <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight text-zinc-900 dark:text-gray-100 leading-tight">
             Your Dream Trip, <br />
             <span className="text-[#7469C4]">Planned by AI</span>
           </h1>
-          <p className="text-zinc-500 text-sm md:text-base max-w-xl">
+          <p className="text-zinc-500 dark:text-zinc-400 text-sm md:text-base max-w-xl">
             Tell us your preferences, and our AI chatbot will craft a personalized itinerary with hotels, restaurants, activities, and transportation.
           </p>
           <div className="flex gap-4 mt-2">
             <Link href="/plan" className="bg-[#7469C4] text-white font-bold px-6 py-3 rounded-full flex items-center gap-2 hover:bg-[#5E54A8] transition-colors">
               Plan My Trip →
             </Link>
-            <Link href="/travel" className="bg-[#ffffff] text-[#7469C4] border border-[#604cf5] font-bold px-6 py-3 rounded-full flex items-center gap-2 hover:bg-[#e8e6fb] transition-colors">
+            <Link href="/travel" className="bg-[#ffffff] dark:bg-gray-950 text-[#7469C4] border border-[#604cf5] font-bold px-6 py-3 rounded-full flex items-center gap-2 hover:bg-[#e8e6fb] dark:hover:bg-[#1E1B33] transition-colors">
               I am already at the destination
             </Link>
           </div>
@@ -76,8 +80,8 @@ export default function Home() {
         {/* 4. Everything You Need */}
         <section className="w-full max-w-5xl text-center flex flex-col gap-10">
           <div>
-            <h2 className="text-2xl font-bold text-zinc-900">Everything You Need</h2>
-            <p className="text-zinc-500 text-sm mt-2">Our AI considers every aspect of your trip to deliver a seamless experience</p>
+            <h2 className="text-2xl font-bold text-zinc-900 dark:text-gray-100">Everything You Need</h2>
+            <p className="text-zinc-500 dark:text-zinc-400 text-sm mt-2">Our AI considers every aspect of your trip to deliver a seamless experience</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
@@ -86,10 +90,10 @@ export default function Home() {
               { title: "Curated Dining", desc: "Restaurant picks based on your dietary needs and taste", icon: "🍽️" },
               { title: "Full Transportation", desc: "Flights, trains, local transit - all planned for you", icon: "✈️" }
             ].map((item, idx) => (
-              <div key={idx} className="bg-zinc-50 p-6 rounded-2xl border border-zinc-100 text-left flex flex-col gap-2">
-                <div className="w-8 h-8 bg-[#EAE8F8] rounded-lg flex items-center justify-center text-[#7469C4] mb-2">{item.icon}</div>
-                <h3 className="font-bold text-zinc-900 text-sm">{item.title}</h3>
-                <p className="text-zinc-500 text-xs leading-relaxed">{item.desc}</p>
+              <div key={idx} className="bg-zinc-50 dark:bg-gray-900 p-6 rounded-2xl border border-zinc-100 dark:border-gray-800 text-left flex flex-col gap-2">
+                <div className="w-8 h-8 bg-[#EAE8F8] dark:bg-[#1E1B33] rounded-lg flex items-center justify-center text-[#7469C4] mb-2">{item.icon}</div>
+                <h3 className="font-bold text-zinc-900 dark:text-gray-100 text-sm">{item.title}</h3>
+                <p className="text-zinc-500 dark:text-zinc-400 text-xs leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -98,8 +102,8 @@ export default function Home() {
         {/* 5. Popular Destinations */}
         <section className="w-full max-w-5xl text-center flex flex-col gap-10">
           <div>
-            <h2 className="text-2xl font-bold text-zinc-900">Popular Destinations</h2>
-            <p className="text-zinc-500 text-sm mt-2">Trending places our travelers love</p>
+            <h2 className="text-2xl font-bold text-zinc-900 dark:text-gray-100">Popular Destinations</h2>
+            <p className="text-zinc-500 dark:text-zinc-400 text-sm mt-2">Trending places our travelers love</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
@@ -133,7 +137,7 @@ export default function Home() {
       </main>
 
       {/* 7. Bottom Footer Bar */}
-      <footer className="border-t border-zinc-100 py-6 px-10 flex justify-between items-center text-[10px] text-zinc-400">
+      <footer className="border-t border-zinc-100 dark:border-gray-800 py-6 px-10 flex justify-between items-center text-[10px] text-zinc-400 dark:text-zinc-500">
         <div>© WanderAI</div>
         <div>Powered by Gemini AI</div>
       </footer>

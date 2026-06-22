@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import ReactMarkdown from 'react-markdown'
+import { usePersistedState } from '@/hooks/usePersistedState'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 // --- Types ---
 
@@ -125,17 +127,18 @@ export default function PlanPage() {
   // US8: Edit panel state
   const [showEditPanel, setShowEditPanel] = useState(false)
 
-  const [messages, setMessages] = useState<Message[]>([
+  const [messages, setMessages] = usePersistedState<Message[]>('plan_messages', [
     { id: '0', role: 'bot', content: STEPS[0].text },
   ])
-  const [currentStep, setCurrentStep] = useState(0)
-  const [preferences, setPreferences] = useState<Partial<TravelPreferences>>(
+  const [currentStep, setCurrentStep] = usePersistedState<number>('plan_step', 0)
+  const [preferences, setPreferences] = usePersistedState<Partial<TravelPreferences>>(
+    'plan_preferences',
     prefilledDestination ? { destination: prefilledDestination } : {}
   )
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [phase, setPhase] = useState<'collecting' | 'menu' | 'recommending'>('collecting')
-  const [geminiMessages, setGeminiMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
+  const [phase, setPhase] = usePersistedState<'collecting' | 'menu' | 'recommending'>('plan_phase', 'collecting')
+  const [geminiMessages, setGeminiMessages] = usePersistedState<{ role: 'user' | 'assistant'; content: string }[]>('plan_gemini_messages', [])
   const [pendingMulti, setPendingMulti] = useState<string[]>([])
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -290,11 +293,11 @@ export default function PlanPage() {
       : MENU_CHIPS
 
   return (
-    <div className="h-screen bg-[#F5F4FD] flex justify-center">
-      <div className="relative flex flex-col w-full max-w-2xl h-full bg-white border-x border-gray-100">
+    <div className="h-screen bg-[#F5F4FD] dark:bg-gray-950 flex justify-center">
+      <div className="relative flex flex-col w-full max-w-2xl h-full bg-white dark:bg-gray-900 border-x border-gray-100 dark:border-gray-800">
 
         {/* Header */}
-        <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3 shrink-0">
+        <header className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-4 py-3 flex items-center gap-3 shrink-0">
           <button
             onClick={() => window.history.back()}
             className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -308,7 +311,7 @@ export default function PlanPage() {
               <StarIcon size={16} />
             </div>
             <div className="min-w-0">
-              <p className="font-semibold text-sm text-gray-900 leading-tight">WanderAI</p>
+              <p className="font-semibold text-sm text-gray-900 dark:text-gray-100 leading-tight">WanderAI</p>
               <p className="text-xs text-emerald-500 leading-tight">● Online</p>
             </div>
           </div>
@@ -318,7 +321,7 @@ export default function PlanPage() {
               <span className="text-xs text-gray-400 font-medium whitespace-nowrap">
                 Step {currentStep + 1}/{TOTAL_STEPS}
               </span>
-              <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+              <div className="w-20 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-[#7469C4] rounded-full transition-all duration-500"
                   style={{ width: `${((currentStep + 1) / TOTAL_STEPS) * 100}%` }}
@@ -338,9 +341,10 @@ export default function PlanPage() {
             </button>
           )}
 
+        <ThemeToggle />
           <button
             onClick={resetChat}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-[#7469C4] hover:bg-[#F2F0FD] transition-colors shrink-0"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-[#7469C4] hover:bg-[#F2F0FD] dark:hover:bg-gray-800 transition-colors shrink-0"
             aria-label="Reset chat"
           >
             <RefreshIcon />
@@ -362,7 +366,7 @@ export default function PlanPage() {
               <div
                 className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${msg.role === 'user'
                   ? 'bg-[#7469C4] text-white rounded-br-sm'
-                  : 'bg-white text-gray-800 shadow-sm rounded-bl-sm'
+                  : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 shadow-sm rounded-bl-sm'
                   }`}
               >
                 {msg.role === 'bot' ? (
@@ -380,7 +384,7 @@ export default function PlanPage() {
                         </li>
                       ),
                       p: ({ children }) => <p className="mb-1 last:mb-0 leading-snug">{children}</p>,
-                      hr: () => <hr className="my-1.5 border-gray-100" />,
+                      hr: () => <hr className="my-1.5 border-gray-100 dark:border-gray-700" />,
                     }}
                   >
                     {msg.content
@@ -417,7 +421,7 @@ export default function PlanPage() {
                   disabled={isLoading}
                   className={`px-4 py-1.5 rounded-full text-sm transition-colors border disabled:opacity-40 ${isSelected
                     ? 'bg-[#7469C4] text-white border-[#7469C4]'
-                    : 'bg-white text-gray-700 border-gray-200 hover:border-[#9B92D8] hover:text-[#5E54A8]'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#9B92D8] hover:text-[#5E54A8]'
                     }`}
                 >
                   {chip}
@@ -437,7 +441,7 @@ export default function PlanPage() {
         )}
 
         {/* Input bar */}
-        <div className="bg-white border-t border-gray-100 px-4 pt-3 pb-4 shrink-0">
+        <div className="bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 px-4 pt-3 pb-4 shrink-0">
           <div className="flex items-center gap-2">
             <input
               ref={inputRef}
@@ -451,7 +455,7 @@ export default function PlanPage() {
               }}
               placeholder="Or type your own answer..."
               disabled={isLoading}
-              className="flex-1 text-sm text-gray-700 bg-gray-50 rounded-full px-4 py-2.5 outline-none border border-transparent focus:border-[#B8B0E8] focus:bg-white transition-colors placeholder:text-gray-400 disabled:opacity-50"
+              className="flex-1 text-sm text-gray-700 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 rounded-full px-4 py-2.5 outline-none border border-transparent focus:border-[#B8B0E8] focus:bg-white dark:focus:bg-gray-700 transition-colors placeholder:text-gray-400 dark:placeholder:text-gray-500 disabled:opacity-50"
             />
             <button
               onClick={() => handleAnswer(input)}
