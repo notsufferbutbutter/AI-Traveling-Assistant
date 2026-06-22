@@ -13,6 +13,9 @@ interface ChatRequestBody {
 
 const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX_REQUESTS = 20
+const PRIMARY_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite'
+const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.5-flash'
+const RETRYABLE_STATUSES = new Set([429, 500, 503, 504])
 const requestLog = new Map<string, number[]>()
 
 export async function POST(req: NextRequest) {
@@ -50,19 +53,74 @@ export async function POST(req: NextRequest) {
   ]
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-lite',
-      contents,
-      config: {
-        tools: [{ googleSearch: {} }],
-      },
-    })
+    const response = await generateWithFallback(ai, contents)
     return Response.json({ content: response.text })
   } catch (err) {
+    const status = getErrorStatus(err)
     const message = err instanceof Error ? err.message : String(err)
-    console.error('Gemini error:', message)
-    return Response.json({ error: message }, { status: 500 })
+    console.error('Gemini request failed:', status ?? 'unknown', message)
+
+    if (status && RETRYABLE_STATUSES.has(status)) {
+      const responseStatus = status === 429 ? 429 : 503
+      return Response.json(
+        {
+          error: 'Gemini is temporarily busy. Please try again shortly.',
+          retryable: true,
+        },
+        {
+          status: responseStatus,
+          headers: { 'Retry-After': '8' },
+        }
+      )
+    }
+
+    return Response.json({ error: 'The AI request could not be completed.' }, { status: 502 })
   }
+}
+
+async function generateWithFallback(
+  ai: GoogleGenAI,
+  contents: Parameters<GoogleGenAI['models']['generateContent']>[0]['contents']
+) {
+  const attempts = [PRIMARY_MODEL, PRIMARY_MODEL, FALLBACK_MODEL]
+  let lastError: unknown
+
+  for (let index = 0; index < attempts.length; index++) {
+    const model = attempts[index]
+    try {
+      return await ai.models.generateContent({
+        model,
+        contents,
+        config: { tools: [{ googleSearch: {} }] },
+      })
+    } catch (error) {
+      lastError = error
+      const status = getErrorStatus(error)
+      const hasAnotherAttempt = index < attempts.length - 1
+      if (!status || !RETRYABLE_STATUSES.has(status) || !hasAnotherAttempt) throw error
+
+      const delayMs = 700 * 2 ** index + Math.floor(Math.random() * 250)
+      console.warn(`Gemini ${model} returned ${status}; retrying in ${delayMs}ms`)
+      await sleep(delayMs)
+    }
+  }
+
+  throw lastError
+}
+
+function getErrorStatus(error: unknown) {
+  if (error && typeof error === 'object' && 'status' in error) {
+    const status = Number((error as { status?: unknown }).status)
+    if (Number.isInteger(status)) return status
+  }
+
+  const message = error instanceof Error ? error.message : String(error)
+  const codeMatch = message.match(/"code"\s*:\s*(\d{3})/)
+  return codeMatch ? Number(codeMatch[1]) : null
+}
+
+function sleep(milliseconds: number) {
+  return new Promise(resolve => setTimeout(resolve, milliseconds))
 }
 
 function buildSystemPrompt(preferences: Record<string, string>) {

@@ -255,6 +255,8 @@ export default function PlanPage() {
   const inputRef = useRef<HTMLInputElement>(null)
   const isAdvancingRef = useRef(false)
   const advanceTimerRef = useRef<number | null>(null)
+  const apiRequestInFlightRef = useRef(false)
+  const [retryAfterSeconds, setRetryAfterSeconds] = useState(0)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -263,6 +265,14 @@ export default function PlanPage() {
   useEffect(() => () => {
     if (advanceTimerRef.current !== null) window.clearTimeout(advanceTimerRef.current)
   }, [])
+
+  useEffect(() => {
+    if (retryAfterSeconds <= 0) return
+    const timer = window.setTimeout(() => {
+      setRetryAfterSeconds(previous => Math.max(0, previous - 1))
+    }, 1_000)
+    return () => window.clearTimeout(timer)
+  }, [retryAfterSeconds])
 
   useEffect(() => {
     if (phase !== 'collecting' || currentStep < TOTAL_STEPS) return
@@ -359,7 +369,8 @@ export default function PlanPage() {
   }
 
   async function handleAnswer(answer: string) {
-    if (!answer.trim() || isLoading || isAdvancingRef.current) return
+    if (!answer.trim() || isLoading || isAdvancingRef.current || apiRequestInFlightRef.current) return
+    if ((phase === 'menu' || phase === 'recommending') && retryAfterSeconds > 0) return
     if (phase === 'collecting' && STEPS[currentStep].field === 'groupSize') {
       const travelers = Number(answer)
       if (!Number.isInteger(travelers) || travelers < 1 || travelers > 50) {
@@ -463,6 +474,8 @@ export default function PlanPage() {
   }
 
   async function generateRecommendation(task: string) {
+    if (apiRequestInFlightRef.current) return
+    apiRequestInFlightRef.current = true
     setIsLoading(true)
     const userMsg = { role: 'user' as const, content: `Give me ${task} recommendations for my trip.` }
     try {
@@ -473,7 +486,7 @@ export default function PlanPage() {
       })
       const data = await res.json()
       if (!res.ok) {
-        addBotMessage("WanderAI couldn't generate suggestions right now. Please try again in a moment.")
+        handleChatFailure(res, data)
         return
       }
       setGeminiMessages([userMsg, { role: 'assistant', content: data.content }])
@@ -484,11 +497,14 @@ export default function PlanPage() {
     } catch {
       addBotMessage("WanderAI couldn't generate suggestions right now. Please try again in a moment.")
     } finally {
+      apiRequestInFlightRef.current = false
       setIsLoading(false)
     }
   }
 
   async function continueChat(message: string) {
+    if (apiRequestInFlightRef.current) return
+    apiRequestInFlightRef.current = true
     setIsLoading(true)
     const newMessages = [...geminiMessages, { role: 'user' as const, content: message }]
     try {
@@ -499,7 +515,7 @@ export default function PlanPage() {
       })
       const data = await res.json()
       if (!res.ok) {
-        addBotMessage("WanderAI couldn't generate suggestions right now. Please try again in a moment.")
+        handleChatFailure(res, data)
         return
       }
       splitAndAddBotMessages(data.content)
@@ -507,15 +523,30 @@ export default function PlanPage() {
     } catch {
       addBotMessage("WanderAI couldn't generate suggestions right now. Please try again in a moment.")
     } finally {
+      apiRequestInFlightRef.current = false
       setIsLoading(false)
     }
+  }
+
+  function handleChatFailure(response: Response, data: { error?: string; retryable?: boolean }) {
+    if (data.retryable || response.status === 429 || response.status === 503) {
+      const retryAfter = Number(response.headers.get('Retry-After'))
+      const seconds = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 8
+      setRetryAfterSeconds(seconds)
+      addBotMessage(`Gemini is temporarily busy. Please try again in ${seconds} seconds.`)
+      return
+    }
+
+    addBotMessage(data.error || "WanderAI couldn't generate suggestions right now. Please try again in a moment.")
   }
 
   function resetChat() {
     if (advanceTimerRef.current !== null) window.clearTimeout(advanceTimerRef.current)
     advanceTimerRef.current = null
     isAdvancingRef.current = false
+    apiRequestInFlightRef.current = false
     setIsLoading(false)
+    setRetryAfterSeconds(0)
     setMessages([{ id: '0', role: 'bot', content: STEPS[0].text }])
     setCurrentStep(0)
     setPreferences(prefilledDestination ? { destination: prefilledDestination } : {})
@@ -780,7 +811,7 @@ export default function PlanPage() {
                 <button
                   key={chip}
                   onClick={() => handleAnswer(chip)}
-                  disabled={isLoading}
+                  disabled={isLoading || retryAfterSeconds > 0}
                   className="rounded-full border border-gray-200 bg-white px-4 py-1.5 text-sm text-gray-700 transition-colors hover:border-[#9B92D8] hover:text-[#5E54A8] disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
                 >
                   {chip}
@@ -824,7 +855,7 @@ export default function PlanPage() {
                       ? 'Type your answer...'
                       : 'Ask a follow-up...'
                 }
-                disabled={isLoading}
+                disabled={isLoading || retryAfterSeconds > 0}
                 className="flex-1 text-sm text-gray-700 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 rounded-full px-4 py-2.5 outline-none border border-transparent focus:border-[#B8B0E8] focus:bg-white dark:focus:bg-gray-700 transition-colors placeholder:text-gray-400 dark:placeholder:text-gray-500 disabled:opacity-50"
               />
               {phase === 'collecting' && STEPS[currentStep]?.field === 'groupSize' && (
@@ -839,7 +870,7 @@ export default function PlanPage() {
               )}
               <button
                 onClick={() => handleAnswer(input)}
-                disabled={!input.trim() || isLoading}
+                disabled={!input.trim() || isLoading || retryAfterSeconds > 0}
                 className="w-10 h-10 rounded-full bg-[#7469C4] flex items-center justify-center text-white disabled:opacity-40 hover:bg-[#5E54A8] transition-colors shrink-0"
                 aria-label="Send"
               >
@@ -847,7 +878,9 @@ export default function PlanPage() {
               </button>
             </div>
             <p className="text-center text-xs text-gray-400 mt-2">
-              Powered by Gemini AI. Recommendations are AI-generated and should be verified.
+              {retryAfterSeconds > 0
+                ? `Gemini is busy. Retry available in ${retryAfterSeconds}s.`
+                : 'Powered by Gemini AI. Recommendations are AI-generated and should be verified.'}
             </p>
           </div>
         )}
