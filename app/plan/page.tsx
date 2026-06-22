@@ -12,6 +12,7 @@ interface Message {
   id: string
   role: 'bot' | 'user'
   content: string
+  isSuggestion?: boolean
 }
 
 interface TravelPreferences {
@@ -55,6 +56,15 @@ const STEP_LABELS: Record<string, string> = {
 }
 
 // --- Icons ---
+
+function MapPinIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+      <circle cx="12" cy="10" r="3" />
+    </svg>
+  )
+}
 
 function StarIcon({ size = 14 }: { size?: number }) {
   return (
@@ -148,8 +158,52 @@ export default function PlanPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isLoading])
 
-  function addBotMessage(content: string) {
-    setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'bot', content }])
+  function addBotMessage(content: string, isSuggestion = false) {
+    setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'bot', content, isSuggestion }])
+  }
+
+  function splitAndAddBotMessages(rawContent: string, onDone?: () => void) {
+    let parts = rawContent.split(/\n---\n/).map(p => p.trim()).filter(Boolean)
+    if (parts.length <= 1) {
+      addBotMessage(rawContent)
+      onDone?.()
+      return
+    }
+
+    // If the AI merged intro + first suggestion before the first ---, split them
+    const blankLine = parts[0].search(/\n\n/)
+    if (blankLine !== -1) {
+      const intro = parts[0].slice(0, blankLine).trim()
+      const firstSuggestion = parts[0].slice(blankLine).trim()
+      if (intro && firstSuggestion) {
+        parts = [intro, firstSuggestion, ...parts.slice(1)]
+      }
+    }
+
+    // If the AI merged the Pro Tip into the last suggestion without a ---, split it out
+    const proTipPattern = /\n\n(WanderAI Pro Tip[:\s])/i
+    const lastPart = parts[parts.length - 1]
+    const proTipMatch = lastPart.match(proTipPattern)
+    if (proTipMatch && !lastPart.trimStart().match(/^WanderAI Pro Tip/i)) {
+      const splitIdx = lastPart.search(proTipPattern)
+      const suggestion = lastPart.slice(0, splitIdx).trim()
+      const proTip = lastPart.slice(splitIdx).trim()
+      parts = [...parts.slice(0, -1), suggestion, proTip]
+    }
+
+    // parts[0] = plain intro bubble
+    // parts[1..n-2] = suggestion cards
+    // parts[n-1] = plain Pro Tip bubble
+    const isProTip = (text: string) => /^WanderAI Pro Tip/i.test(text.trimStart())
+
+    addBotMessage(parts[0], false)
+    parts.slice(1).forEach((part, i) => {
+      const isLast = i === parts.length - 2
+      setTimeout(() => {
+        addBotMessage(part, !isProTip(part) && !isLast)
+        if (isLast) onDone?.()
+      }, (i + 1) * 250)
+    })
   }
 
   function addUserMessage(content: string) {
@@ -230,10 +284,11 @@ export default function PlanPage() {
         addBotMessage(`Error: ${data.error}`)
         return
       }
-      addBotMessage(data.content)
       setGeminiMessages([userMsg, { role: 'assistant', content: data.content }])
       setPhase('recommending')
-      setTimeout(() => addBotMessage('Anything else you want to explore?'), 500)
+      splitAndAddBotMessages(data.content, () => {
+        setTimeout(() => addBotMessage('Anything else you want to explore?'), 500)
+      })
     } catch {
       addBotMessage('Sorry, something went wrong. Please try again!')
     } finally {
@@ -255,7 +310,7 @@ export default function PlanPage() {
         addBotMessage(`Error: ${data.error}`)
         return
       }
-      addBotMessage(data.content)
+      splitAndAddBotMessages(data.content)
       setGeminiMessages([...newMessages, { role: 'assistant', content: data.content }])
     } catch (err) {
       addBotMessage(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
@@ -359,38 +414,87 @@ export default function PlanPage() {
               className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} items-end gap-2`}
             >
               {msg.role === 'bot' && (
-                <div className="w-8 h-8 rounded-full bg-[#7469C4] flex items-center justify-center text-white shrink-0">
+                <div className="w-8 h-8 rounded-full bg-[#7469C4] flex items-center justify-center text-white shrink-0 self-start mt-1">
                   <StarIcon />
                 </div>
               )}
               <div
-                className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${msg.role === 'user'
-                  ? 'bg-[#7469C4] text-white rounded-br-sm'
-                  : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 shadow-sm rounded-bl-sm'
-                  }`}
+                className={`text-sm leading-relaxed ${
+                  msg.role === 'user'
+                    ? 'max-w-[75%] px-4 py-2.5 rounded-2xl rounded-br-sm bg-[#7469C4] text-white whitespace-pre-wrap'
+                    : msg.isSuggestion
+                    ? 'max-w-[82%] rounded-2xl rounded-bl-sm overflow-hidden shadow-sm border border-[#E8E4FA] dark:border-[#3D3566]'
+                    : 'max-w-[75%] px-4 py-2.5 rounded-2xl rounded-bl-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 shadow-sm whitespace-pre-wrap'
+                }`}
               >
                 {msg.role === 'bot' ? (
-                  <ReactMarkdown
-                    components={{
-                      h1: ({ children }) => <p className="font-bold text-sm mt-3 mb-1 first:mt-0">{children}</p>,
-                      h2: ({ children }) => <p className="font-bold text-sm mt-2 mb-1 first:mt-0">{children}</p>,
-                      h3: ({ children }) => <p className="font-semibold text-sm mt-2 mb-0.5 first:mt-0">{children}</p>,
-                      strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                      ul: ({ children }) => <ul className="my-1 space-y-0.5">{children}</ul>,
-                      ol: ({ children }) => <ol className="my-1 space-y-0.5 list-decimal list-inside">{children}</ol>,
-                      li: ({ children }) => (
-                        <li className="flex gap-1.5 items-start">
-                          <span className="leading-snug">{children}</span>
-                        </li>
-                      ),
-                      p: ({ children }) => <p className="mb-1 last:mb-0 leading-snug">{children}</p>,
-                      hr: () => <hr className="my-1.5 border-gray-100 dark:border-gray-700" />,
-                    }}
-                  >
-                    {msg.content
-                      .replace(/\n{3,}/g, '\n\n')
-                      .replace(/(\n[-*+][^\n]+)\n\n(?=[-*+])/g, '$1\n')}
-                  </ReactMarkdown>
+                  msg.isSuggestion ? (() => {
+                    const nameMatch = msg.content.match(/\*\*([^*]+)\*\*/)
+                    const placeName = nameMatch?.[1]?.trim()
+                    const destination = preferences.destination ?? ''
+                    const mapsQuery = encodeURIComponent(placeName ? `${placeName}, ${destination}` : destination)
+                    return (
+                      <div className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200">
+                        <div className="h-1 bg-gradient-to-r from-[#7469C4] to-[#9B92D8]" />
+                        <div className="px-4 py-3">
+                          <ReactMarkdown
+                            components={{
+                              h1: ({ children }) => <p className="font-bold text-sm mt-3 mb-1 first:mt-0 text-[#5E54A8] dark:text-[#9B92D8]">{children}</p>,
+                              h2: ({ children }) => <p className="font-bold text-sm mt-2 mb-1 first:mt-0 text-[#5E54A8] dark:text-[#9B92D8]">{children}</p>,
+                              h3: ({ children }) => <p className="font-semibold text-sm mt-2 mb-0.5 first:mt-0">{children}</p>,
+                              strong: ({ children }) => <strong className="font-semibold text-gray-900 dark:text-gray-100">{children}</strong>,
+                              ul: ({ children }) => <ul className="my-1.5 space-y-1">{children}</ul>,
+                              ol: ({ children }) => <ol className="my-1.5 space-y-1 list-decimal list-inside">{children}</ol>,
+                              li: ({ children }) => (
+                                <li className="text-gray-700 dark:text-gray-300 leading-snug">
+                                  {children}
+                                </li>
+                              ),
+                              p: ({ children }) => <p className="mb-1.5 last:mb-0 leading-snug">{children}</p>,
+                              hr: () => <hr className="my-2 border-gray-100 dark:border-gray-700" />,
+                            }}
+                          >
+                            {msg.content.replace(/\n{3,}/g, '\n\n')}
+                          </ReactMarkdown>
+                        </div>
+                        {placeName && (
+                          <div className="px-4 pb-3 border-t border-gray-100 dark:border-gray-700 pt-2">
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${mapsQuery}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 text-xs text-[#7469C4] dark:text-[#9B92D8] hover:text-[#5E54A8] font-medium transition-colors"
+                            >
+                              <MapPinIcon />
+                              View on Google Maps
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })() : (
+                    <ReactMarkdown
+                      components={{
+                        h1: ({ children }) => <p className="font-bold text-sm mt-3 mb-1 first:mt-0">{children}</p>,
+                        h2: ({ children }) => <p className="font-bold text-sm mt-2 mb-1 first:mt-0">{children}</p>,
+                        h3: ({ children }) => <p className="font-semibold text-sm mt-2 mb-0.5 first:mt-0">{children}</p>,
+                        strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                        ul: ({ children }) => <ul className="my-1 space-y-0.5">{children}</ul>,
+                        ol: ({ children }) => <ol className="my-1 space-y-0.5 list-decimal list-inside">{children}</ol>,
+                        li: ({ children }) => (
+                          <li className="flex gap-1.5 items-start">
+                            <span className="leading-snug">{children}</span>
+                          </li>
+                        ),
+                        p: ({ children }) => <p className="mb-1 last:mb-0 leading-snug">{children}</p>,
+                        hr: () => <hr className="my-1.5 border-gray-100 dark:border-gray-700" />,
+                      }}
+                    >
+                      {msg.content
+                        .replace(/\n{3,}/g, '\n\n')
+                        .replace(/(\n[-*+][^\n]+)\n\n(?=[-*+])/g, '$1\n')}
+                    </ReactMarkdown>
+                  )
                 ) : (
                   msg.content
                 )}
