@@ -8,11 +8,23 @@ export function usePersistedState<T>(
   const hydrated = useRef(false)
 
   useEffect(() => {
+    let cancelled = false
+    let stored: string | null = null
     try {
-      const stored = localStorage.getItem(key)
-      if (stored !== null) setValue(JSON.parse(stored) as T)
+      stored = localStorage.getItem(key)
     } catch {}
-    hydrated.current = true
+
+    queueMicrotask(() => {
+      if (cancelled) return
+      try {
+        if (stored !== null) setValue(JSON.parse(stored) as T)
+      } catch {}
+      hydrated.current = true
+    })
+
+    return () => {
+      cancelled = true
+    }
   }, [key])
 
   useEffect(() => {

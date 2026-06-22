@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { usePersistedState } from '@/hooks/usePersistedState'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -28,6 +28,16 @@ interface VisitedPlace {
   name: string
   category: PlaceCategory
   duration: string
+}
+
+interface Weather {
+  location: string
+  temp: number
+  feelsLike: number | null
+  condition: string
+  humidity: number
+  wind: number
+  icon: string | null
 }
 
 // UC13: Eine einzelne Empfehlung
@@ -200,16 +210,6 @@ function PlaceRow({ place, onRemove }: { place: VisitedPlace; onRemove: () => vo
   )
 }
 
-function getLocalWeather() {
-  return {
-    location: 'Your Location',
-    temp: 22,
-    condition: 'Partly Cloudy',
-    humidity: 58,
-    wind: 12,
-  }
-}
-
 // UC13: Hilfsfunktion — teilt Gemini-Text in 3 Empfehlungen auf
 function splitSuggestions(text: string): string[] {
   // Strip any intro sentence(s) before the first numbered item
@@ -232,6 +232,25 @@ function splitSuggestions(text: string): string[] {
   return [body]
 }
 
+function getWeatherIcon(weather: Weather | null) {
+  const code = weather?.icon?.slice(0, 2)
+  if (code === '01') return { symbol: '☀️', label: 'Sunny' }
+  if (code === '02') return { symbol: '🌤️', label: 'Partly cloudy' }
+  if (code === '03' || code === '04') return { symbol: '☁️', label: 'Cloudy' }
+  if (code === '09' || code === '10') return { symbol: '🌧️', label: 'Rainy' }
+  if (code === '11') return { symbol: '⛈️', label: 'Thunderstorm' }
+  if (code === '13') return { symbol: '❄️', label: 'Snowy' }
+  if (code === '50') return { symbol: '🌫️', label: 'Foggy' }
+
+  const condition = weather?.condition.toLowerCase() ?? ''
+  if (condition.includes('rain') || condition.includes('drizzle')) return { symbol: '🌧️', label: 'Rainy' }
+  if (condition.includes('clear') || condition.includes('sun')) return { symbol: '☀️', label: 'Sunny' }
+  if (condition.includes('snow')) return { symbol: '❄️', label: 'Snowy' }
+  if (condition.includes('storm') || condition.includes('thunder')) return { symbol: '⛈️', label: 'Thunderstorm' }
+  if (condition.includes('mist') || condition.includes('fog') || condition.includes('haze')) return { symbol: '🌫️', label: 'Foggy' }
+  return { symbol: '☁️', label: weather ? 'Cloudy' : 'Weather unavailable' }
+}
+
 export default function TravelPage() {
   const [visitedPlaces, setVisitedPlaces] = usePersistedState<VisitedPlace[]>('travel_visited_places', [])
   const [placeInput, setPlaceInput] = useState('')
@@ -247,6 +266,10 @@ export default function TravelPage() {
   const [locating, setLocating] = useState(false)
   const [savedSuggestions, setSavedSuggestions] = usePersistedState<Suggestion[]>('travel_saved_suggestions', [])
   const [showSaved, setShowSaved] = useState(false)
+  const [weather, setWeather] = useState<Weather | null>(null)
+  const [weatherError, setWeatherError] = useState<string | null>(null)
+  const [isWeatherLoading, setIsWeatherLoading] = useState(false)
+  const skipWeatherLookupFor = useRef<string | null>(null)
 
   // UC13: Empfehlungen als einzelne Karten statt einem String
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
@@ -254,11 +277,52 @@ export default function TravelPage() {
   const [consecutiveSkips, setConsecutiveSkips] = useState(0)
   const [showPrefsChangedHint, setShowPrefsChangedHint] = useState(false)
 
-  const weather = getLocalWeather()
   const canGenerate = currentLocation.trim().length > 0 && feeling !== null && selectedPrefs.length > 0
 
   // UC13: Zählt wie viele Empfehlungen noch aktiv (nicht übersprungen) sind
   const activeSuggestions = suggestions.filter(s => !s.skipped)
+  const weatherIcon = getWeatherIcon(weather)
+
+  useEffect(() => {
+    const location = currentLocation.trim()
+    if (location.length < 2) return
+    if (skipWeatherLookupFor.current === location) {
+      skipWeatherLookupFor.current = null
+      return
+    }
+
+    const controller = new AbortController()
+    const timer = window.setTimeout(async () => {
+      setIsWeatherLoading(true)
+      setWeatherError(null)
+      try {
+        const response = await fetch(`/api/weather?location=${encodeURIComponent(location)}`, {
+          signal: controller.signal,
+        })
+        const data = await response.json()
+        if (!response.ok) throw new Error(data.error || 'Could not load current weather.')
+        setWeather(data as Weather)
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        setWeather(null)
+        setWeatherError(error instanceof Error ? error.message : 'Could not load current weather.')
+      } finally {
+        if (!controller.signal.aborted) setIsWeatherLoading(false)
+      }
+    }, 600)
+
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
+    }
+  }, [currentLocation])
+
+  function handleLocationChange(value: string) {
+    setCurrentLocation(value)
+    setWeather(null)
+    setWeatherError(null)
+    setIsWeatherLoading(false)
+  }
 
   function addPlace() {
     if (!placeInput.trim()) return
@@ -332,7 +396,7 @@ How I am feeling: ${feeling}
 What I am looking for: ${selectedPrefs.join(', ')}
 Budget: ${selectedBudget || 'Mid-Range'}
 Radius: ${selectedRadius}
-Weather: ${weather.temp}°C, ${weather.condition}
+${weather ? `Weather: ${weather.temp}°C, ${weather.condition}` : 'Current weather is unavailable.'}
 
 Give me exactly ONE new suggestion (different from everything above) with:
 - Why it matches my mood
@@ -398,7 +462,7 @@ Budget level: ${selectedBudget || 'Mid-Range'}
 Recommendation radius: ${selectedRadius}
 ${additionalNotes ? `Additional notes: ${additionalNotes}` : ''}
 
-Current local weather: ${weather.temp} C, ${weather.condition}, ${weather.humidity}% humidity, wind ${weather.wind} km/h
+${weather ? `Current weather in ${weather.location}: ${weather.temp} C, ${weather.condition}, ${weather.humidity}% humidity, wind ${weather.wind} km/h` : 'Current local weather is unavailable. Do not assume specific conditions.'}
 
 Suggest exactly 3 places or experiences. Number each one clearly as "1.", "2.", "3." on a new line. For each include:
 - Why it matches my mood and preferences
@@ -473,10 +537,7 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
     selectedPrefs,
     selectedRadius,
     visitedPlaces,
-    weather.condition,
-    weather.humidity,
-    weather.temp,
-    weather.wind,
+    weather,
   ])
 
   function resetAll() {
@@ -494,6 +555,8 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
     setWhySection('')
     setConsecutiveSkips(0)
     setShowPrefsChangedHint(false)
+    setWeather(null)
+    setWeatherError(null)
   }
 
   const hasSuggestions = suggestions.length > 0
@@ -510,25 +573,47 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
   }
 
   async function getDeviceLocation() {
-    if (!navigator.geolocation) return
+    if (!navigator.geolocation) {
+      setWeatherError('Location services are not supported by this browser.')
+      return
+    }
     setLocating(true)
+    setIsWeatherLoading(true)
+    setWeatherError(null)
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         try {
           const { latitude, longitude } = position.coords
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
-            { headers: { 'Accept-Language': 'en' } }
-          )
+          const params = new URLSearchParams({ lat: String(latitude), lon: String(longitude) })
+          const res = await fetch(`/api/weather?${params}`)
           const data = await res.json()
-          const addr = data.address
-          const city = addr.city || addr.town || addr.village || addr.county || ''
-          const country = addr.country || ''
-          setCurrentLocation(city && country ? `${city}, ${country}` : data.display_name)
-        } catch {}
-        setLocating(false)
+          if (!res.ok) throw new Error(data.error || 'Could not load weather for your location.')
+
+          const currentWeather = data as Weather
+          skipWeatherLookupFor.current = currentWeather.location
+          setCurrentLocation(currentWeather.location)
+          setWeather(currentWeather)
+        } catch (error) {
+          setWeather(null)
+          setWeatherError(error instanceof Error ? error.message : 'Could not load weather for your location.')
+        } finally {
+          setLocating(false)
+          setIsWeatherLoading(false)
+        }
       },
-      () => setLocating(false)
+      error => {
+        setWeatherError(
+          error.code === error.PERMISSION_DENIED
+            ? 'Location permission was denied. Allow it or enter a city.'
+            : error.code === error.TIMEOUT
+              ? 'Finding your location timed out. Please try again.'
+              : 'Your current location could not be determined.'
+        )
+        setWeather(null)
+        setLocating(false)
+        setIsWeatherLoading(false)
+      },
+      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 300_000 }
     )
   }
 
@@ -600,22 +685,39 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
           </div>
         </section>
 
-        <section className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-slate-100 dark:border-gray-800 flex items-center justify-between shadow-sm">
+        <section className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-slate-100 dark:border-gray-800 flex items-center justify-between shadow-sm" aria-live="polite">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-sky-50 flex items-center justify-center text-sky-500 text-xl">
-              ☁
+            <div
+              className="w-12 h-12 rounded-xl bg-sky-50 dark:bg-sky-950/40 flex items-center justify-center text-2xl"
+              role="img"
+              aria-label={weatherIcon.label}
+              title={weatherIcon.label}
+            >
+              {weatherIcon.symbol}
             </div>
             <div>
-              <p className="text-sm text-slate-500">Current Weather</p>
-              <p className="text-xl text-slate-800 dark:text-slate-200 font-bold">
-                {weather.temp} C <span className="text-sm text-slate-500 font-normal">{weather.condition}</span>
+              <p className="text-sm text-slate-500">
+                {weather ? `Current Weather · ${weather.location}` : 'Current Weather'}
               </p>
+              {isWeatherLoading ? (
+                <p className="text-sm text-slate-500">Loading current conditions…</p>
+              ) : weather ? (
+                <p className="text-xl text-slate-800 dark:text-slate-200 font-bold">
+                  {weather.temp}°C <span className="text-sm text-slate-500 font-normal">{weather.condition}</span>
+                </p>
+              ) : (
+                <p className={`text-sm ${weatherError ? 'text-red-600' : 'text-slate-400'}`}>
+                  {weatherError || 'Enter a destination or use your current location.'}
+                </p>
+              )}
             </div>
           </div>
-          <div className="hidden sm:flex items-center gap-4 text-xs text-slate-400">
-            <span>{weather.humidity}% humidity</span>
-            <span>{weather.wind} km/h wind</span>
-          </div>
+          {weather && (
+            <div className="hidden sm:flex items-center gap-4 text-xs text-slate-400">
+              <span>{weather.humidity}% humidity</span>
+              <span>{weather.wind} km/h wind</span>
+            </div>
+          )}
         </section>
 
         <section>
@@ -626,7 +728,7 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
             <Icon name="map-pin" className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               value={currentLocation}
-              onChange={event => setCurrentLocation(event.target.value)}
+              onChange={event => handleLocationChange(event.target.value)}
               placeholder="e.g. Shibuya, Tokyo or Paris, France..."
               className="w-full pl-10 pr-11 py-3 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C9C3F0] focus:border-[#9B92D8] text-sm dark:text-gray-100"
             />
@@ -844,7 +946,7 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
                 <div>
                   <p className="text-sm font-semibold text-amber-800">Changed your mind?</p>
                   <p className="text-xs text-amber-700 mt-0.5">
-                    You've skipped 3 suggestions in a row. Try adjusting your mood or preferences above, or generate new ones.
+                    You’ve skipped 3 suggestions in a row. Try adjusting your mood or preferences above, or generate new ones.
                   </p>
                 </div>
                 <button
