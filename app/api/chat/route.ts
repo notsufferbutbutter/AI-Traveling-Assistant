@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash-lite',
       contents,
       config: {
         tools: [{ googleSearch: {} }],
@@ -117,21 +117,36 @@ STRICT RULES:
 
 FORMAT PER CATEGORY — use these exact structures:
 
-🏨 HOTELS → for each option: hotel name, star rating, price per night in EUR/USD, neighbourhood, one standout feature, and why it suits this traveler.
+Hotels → for each option: hotel name, star rating, price per night in EUR/USD, neighbourhood, one standout feature, and why it suits this traveler.
 
-🍽️ RESTAURANTS → for each option: restaurant name, cuisine type, average price per person, must-try dish, and a dietary note if relevant.
+Restaurants → for each option: restaurant name, cuisine type, average price per person, must-try dish, and a dietary note if relevant.
 
-🎯 ACTIVITIES → for each option: activity/attraction name, estimated duration, entry cost, best time to visit, and why it matches their travel style.
+Activities → for each option: activity/attraction name, estimated duration, entry cost, best time to visit, and why it matches their travel style.
 
-✈️ TRANSPORTATION → cover two parts: (1) getting from ${origin} to ${destination} with 2–3 real options (airline/train/bus names, price ranges, travel time); (2) getting around ${destination} locally (metro, bus, taxi apps, walking zones).
+Transportation → cover two parts: (1) getting from ${origin} to ${destination} with 2–3 real options (airline/train/bus names, price ranges, travel time); (2) getting around ${destination} locally (metro, bus, taxi apps, walking zones).
 
-🗓️ FULL ITINERARY → create a structured day-by-day plan for ${duration}. Each day must have: Morning, Afternoon, Evening slots — each slot includes one activity or meal recommendation with a short reason. End with a packing tip relevant to ${destination} and ${travelStyle}.
+Full Itinerary → create a structured day-by-day plan for ${duration}. Each day must have: Morning, Afternoon, Evening slots — each slot includes one activity or meal recommendation with a short reason. End with a packing tip relevant to ${destination} and ${travelStyle}.
+
+SEPARATOR RULE — CRITICAL:
+Structure your entire response EXACTLY like this — the intro sentence is alone on its own block, separated from Option 1 by ---. Never merge the intro with Option 1:
+
+[One-line intro sentence only — nothing else in this block]
+---
+[Option 1 full details]
+---
+[Option 2 full details]
+---
+[Option 3 full details]
+---
+WanderAI Pro Tip: [tip here — this is always the final block, separated by --- from Option 3]
+
+The --- separator must appear between EVERY block, including between the intro and Option 1, and between Option 3 and the Pro Tip. Exactly 5 --- separators total (intro, 3 options, pro tip = 5 blocks = 4 separators).
 
 GENERAL STYLE:
 - Be specific, practical, and confident.
-- seperate each structure with bullet points and bolded titles for easier readability
+- Use bold for names/titles within each option.
 - Keep each recommendation to 3–4 lines maximum.
-- Provide 3–4 options per category.
+- Provide EXACTLY 3 options per category — never 4 or more.
 - Do not use emojis in the reply
 - End every response with one personalised "WanderAI Pro Tip" based on the unique combination of this traveler's preferences.`
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { usePersistedState } from '@/hooks/usePersistedState'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -30,11 +30,22 @@ interface VisitedPlace {
   duration: string
 }
 
+interface Weather {
+  location: string
+  temp: number
+  feelsLike: number | null
+  condition: string
+  humidity: number
+  wind: number
+  icon: string | null
+}
+
 // UC13: Eine einzelne Empfehlung
 interface Suggestion {
   id: string
   content: string
   skipped: boolean
+  isError?: boolean
 }
 
 const PLACE_CATEGORIES: PlaceCategory[] = [
@@ -109,7 +120,12 @@ function Icon({
     ),
     plus: <path d="M12 5v14M5 12h14" />,
     sparkles: <path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Zm7 12 .8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15ZM5 14l.8 2.2L8 17l-2.2.8L5 20l-.8-2.2L2 17l2.2-.8L5 14Z" />,
-    refresh: <path d="M21 12a9 9 0 0 1-15.3 6.4M3 12A9 9 0 0 1 18.3 5.6M3 18v-6h6M21 6v6h-6" />,
+    refresh: (
+      <>
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+        <path d="M3 3v5h5" />
+      </>
+    ),
     x: <path d="M18 6 6 18M6 6l12 12" />,
     clock: (
       <>
@@ -168,6 +184,51 @@ function SelectableChip({
   )
 }
 
+function CustomChipInput({
+  value,
+  onChange,
+  onConfirm,
+  onCancel,
+  placeholder,
+}: {
+  value: string
+  onChange: (v: string) => void
+  onConfirm: () => void
+  onCancel: () => void
+  placeholder: string
+}) {
+  return (
+    <div className="flex gap-2 mt-2 w-full">
+      <input
+        autoFocus
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') onConfirm()
+          if (e.key === 'Escape') onCancel()
+        }}
+        placeholder={placeholder}
+        className="flex-1 px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C9C3F0] dark:text-gray-100 placeholder:text-slate-400"
+      />
+      <button
+        type="button"
+        disabled={!value.trim()}
+        onClick={onConfirm}
+        className="px-4 py-2 bg-[#7469C4] text-white text-sm rounded-xl hover:bg-[#5E54A8] disabled:opacity-40 transition-colors font-medium"
+      >
+        Add
+      </button>
+      <button
+        type="button"
+        onClick={onCancel}
+        className="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-gray-700 text-slate-400 hover:text-slate-600 transition-colors"
+      >
+        <Icon name="x" className="w-4 h-4" />
+      </button>
+    </div>
+  )
+}
+
 function PlaceRow({ place, onRemove }: { place: VisitedPlace; onRemove: () => void }) {
   return (
     <div className="flex items-center justify-between gap-3 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-2.5 shadow-sm">
@@ -200,32 +261,45 @@ function PlaceRow({ place, onRemove }: { place: VisitedPlace; onRemove: () => vo
   )
 }
 
-function getLocalWeather() {
-  return {
-    location: 'Your Location',
-    temp: 22,
-    condition: 'Partly Cloudy',
-    humidity: 58,
-    wind: 12,
-  }
-}
-
 // UC13: Hilfsfunktion — teilt Gemini-Text in 3 Empfehlungen auf
 function splitSuggestions(text: string): string[] {
+  // Strip any intro sentence(s) before the first numbered item
+  const firstNumberedIndex = text.search(/(?:^|\n)(##\s*\d+\.|\*\*\d+\.|\d+\.\s+\*\*|\d+\.\s+\S)/)
+  const body = firstNumberedIndex > 0 ? text.slice(firstNumberedIndex).trim() : text
+
   // Versuche bei nummerierten Überschriften zu trennen (## 1. oder **1.** oder 1.)
-  const byNumberedHeading = text.split(/\n(?=##\s*\d+\.|\*\*\d+\.|(?<!\S)\d+\.\s+\*\*)/)
+  const byNumberedHeading = body.split(/\n(?=##\s*\d+\.|\*\*\d+\.|(?<!\S)\d+\.\s+\*\*)/)
   if (byNumberedHeading.length >= 3) {
     return byNumberedHeading.slice(0, 3).map(s => s.trim()).filter(Boolean)
   }
 
   // Fallback: bei doppeltem Zeilenumbruch + Ziffer trennen
-  const byNewline = text.split(/\n{2,}(?=\d+\.)/)
+  const byNewline = body.split(/\n{2,}(?=\d+\.)/)
   if (byNewline.length >= 3) {
     return byNewline.slice(0, 3).map(s => s.trim()).filter(Boolean)
   }
 
   // Letzter Fallback: gesamten Text als eine Karte
-  return [text]
+  return [body]
+}
+
+function getWeatherIcon(weather: Weather | null) {
+  const code = weather?.icon?.slice(0, 2)
+  if (code === '01') return { symbol: '☀️', label: 'Sunny' }
+  if (code === '02') return { symbol: '🌤️', label: 'Partly cloudy' }
+  if (code === '03' || code === '04') return { symbol: '☁️', label: 'Cloudy' }
+  if (code === '09' || code === '10') return { symbol: '🌧️', label: 'Rainy' }
+  if (code === '11') return { symbol: '⛈️', label: 'Thunderstorm' }
+  if (code === '13') return { symbol: '❄️', label: 'Snowy' }
+  if (code === '50') return { symbol: '🌫️', label: 'Foggy' }
+
+  const condition = weather?.condition.toLowerCase() ?? ''
+  if (condition.includes('rain') || condition.includes('drizzle')) return { symbol: '🌧️', label: 'Rainy' }
+  if (condition.includes('clear') || condition.includes('sun')) return { symbol: '☀️', label: 'Sunny' }
+  if (condition.includes('snow')) return { symbol: '❄️', label: 'Snowy' }
+  if (condition.includes('storm') || condition.includes('thunder')) return { symbol: '⛈️', label: 'Thunderstorm' }
+  if (condition.includes('mist') || condition.includes('fog') || condition.includes('haze')) return { symbol: '🌫️', label: 'Foggy' }
+  return { symbol: '☁️', label: weather ? 'Cloudy' : 'Weather unavailable' }
 }
 
 export default function TravelPage() {
@@ -233,7 +307,7 @@ export default function TravelPage() {
   const [placeInput, setPlaceInput] = useState('')
   const [durationInput, setDurationInput] = useState('')
   const [categoryInput, setCategoryInput] = useState<PlaceCategory>('Restaurant')
-  const [feeling, setFeeling] = usePersistedState<Feeling | null>('travel_feeling', null)
+  const [feeling, setFeeling] = usePersistedState<string | null>('travel_feeling', null)
   const [selectedPrefs, setSelectedPrefs] = usePersistedState<string[]>('travel_prefs', [])
   const [selectedRadius, setSelectedRadius] = usePersistedState<string>('travel_radius', RADIUS_OPTIONS[0])
   const [selectedBudget, setSelectedBudget] = usePersistedState<string | null>('travel_budget', null)
@@ -241,6 +315,12 @@ export default function TravelPage() {
   const [additionalNotes, setAdditionalNotes] = usePersistedState<string>('travel_notes', '')
   const [isGenerating, setIsGenerating] = useState(false)
   const [locating, setLocating] = useState(false)
+  const [savedSuggestions, setSavedSuggestions] = usePersistedState<Suggestion[]>('travel_saved_suggestions', [])
+  const [showSaved, setShowSaved] = useState(false)
+  const [weather, setWeather] = useState<Weather | null>(null)
+  const [weatherError, setWeatherError] = useState<string | null>(null)
+  const [isWeatherLoading, setIsWeatherLoading] = useState(false)
+  const skipWeatherLookupFor = useRef<string | null>(null)
 
   // UC13: Empfehlungen als einzelne Karten statt einem String
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
@@ -248,11 +328,59 @@ export default function TravelPage() {
   const [consecutiveSkips, setConsecutiveSkips] = useState(0)
   const [showPrefsChangedHint, setShowPrefsChangedHint] = useState(false)
 
-  const weather = getLocalWeather()
+  const [showCustomRadius, setShowCustomRadius] = useState(false)
+  const [customRadiusInput, setCustomRadiusInput] = useState('')
+  const [showCustomFeeling, setShowCustomFeeling] = useState(false)
+  const [customFeelingInput, setCustomFeelingInput] = useState('')
+  const [showCustomPref, setShowCustomPref] = useState(false)
+  const [customPrefInput, setCustomPrefInput] = useState('')
+
   const canGenerate = currentLocation.trim().length > 0 && feeling !== null && selectedPrefs.length > 0
 
   // UC13: Zählt wie viele Empfehlungen noch aktiv (nicht übersprungen) sind
   const activeSuggestions = suggestions.filter(s => !s.skipped)
+  const weatherIcon = getWeatherIcon(weather)
+
+  useEffect(() => {
+    const location = currentLocation.trim()
+    if (location.length < 2) return
+    if (skipWeatherLookupFor.current === location) {
+      skipWeatherLookupFor.current = null
+      return
+    }
+
+    const controller = new AbortController()
+    const timer = window.setTimeout(async () => {
+      setIsWeatherLoading(true)
+      setWeatherError(null)
+      try {
+        const response = await fetch(`/api/weather?location=${encodeURIComponent(location)}`, {
+          signal: controller.signal,
+        })
+        const data = await response.json()
+        if (!response.ok) throw new Error(data.error || 'Could not load current weather.')
+        setWeather(data as Weather)
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        setWeather(null)
+        setWeatherError(error instanceof Error ? error.message : 'Could not load current weather.')
+      } finally {
+        if (!controller.signal.aborted) setIsWeatherLoading(false)
+      }
+    }, 600)
+
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
+    }
+  }, [currentLocation])
+
+  function handleLocationChange(value: string) {
+    setCurrentLocation(value)
+    setWeather(null)
+    setWeatherError(null)
+    setIsWeatherLoading(false)
+  }
 
   function addPlace() {
     if (!placeInput.trim()) return
@@ -276,6 +404,16 @@ export default function TravelPage() {
   }
 
   // UC13: Empfehlung überspringen
+  function handleSave(suggestion: Suggestion) {
+    setSavedSuggestions(prev =>
+      prev.some(s => s.id === suggestion.id) ? prev : [...prev, suggestion]
+    )
+  }
+
+  function isSaved(id: string) {
+    return savedSuggestions.some(s => s.id === id)
+  }
+
   async function handleSkip(id: string) {
     setSuggestions(prev =>
       prev.map(s => s.id === id ? { ...s, skipped: true } : s)
@@ -316,7 +454,7 @@ How I am feeling: ${feeling}
 What I am looking for: ${selectedPrefs.join(', ')}
 Budget: ${selectedBudget || 'Mid-Range'}
 Radius: ${selectedRadius}
-Weather: ${weather.temp}°C, ${weather.condition}
+${weather ? `Weather: ${weather.temp}°C, ${weather.condition}` : 'Current weather is unavailable.'}
 
 Give me exactly ONE new suggestion (different from everything above) with:
 - Why it matches my mood
@@ -382,7 +520,7 @@ Budget level: ${selectedBudget || 'Mid-Range'}
 Recommendation radius: ${selectedRadius}
 ${additionalNotes ? `Additional notes: ${additionalNotes}` : ''}
 
-Current local weather: ${weather.temp} C, ${weather.condition}, ${weather.humidity}% humidity, wind ${weather.wind} km/h
+${weather ? `Current weather in ${weather.location}: ${weather.temp} C, ${weather.condition}, ${weather.humidity}% humidity, wind ${weather.wind} km/h` : 'Current local weather is unavailable. Do not assume specific conditions.'}
 
 Suggest exactly 3 places or experiences. Number each one clearly as "1.", "2.", "3." on a new line. For each include:
 - Why it matches my mood and preferences
@@ -419,8 +557,9 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
       if (!response.ok) {
         setSuggestions([{
           id: crypto.randomUUID(),
-          content: `Error: ${data.error || 'Could not generate recommendations.'}`,
+          content: "WanderAI couldn't generate suggestions right now. Please try again in a moment.",
           skipped: false,
+          isError: true,
         }])
         return
       }
@@ -439,11 +578,12 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
         content,
         skipped: false,
       })))
-    } catch (error) {
+    } catch {
       setSuggestions([{
         id: crypto.randomUUID(),
-        content: `Error: ${error instanceof Error ? error.message : 'Something went wrong.'}`,
+        content: "WanderAI couldn't generate suggestions right now. Please try again in a moment.",
         skipped: false,
+        isError: true,
       }])
     } finally {
       setIsGenerating(false)
@@ -457,10 +597,7 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
     selectedPrefs,
     selectedRadius,
     visitedPlaces,
-    weather.condition,
-    weather.humidity,
-    weather.temp,
-    weather.wind,
+    weather,
   ])
 
   function resetAll() {
@@ -478,6 +615,14 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
     setWhySection('')
     setConsecutiveSkips(0)
     setShowPrefsChangedHint(false)
+    setWeather(null)
+    setWeatherError(null)
+    setShowCustomRadius(false)
+    setCustomRadiusInput('')
+    setShowCustomFeeling(false)
+    setCustomFeelingInput('')
+    setShowCustomPref(false)
+    setCustomPrefInput('')
   }
 
   const hasSuggestions = suggestions.length > 0
@@ -494,25 +639,47 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
   }
 
   async function getDeviceLocation() {
-    if (!navigator.geolocation) return
+    if (!navigator.geolocation) {
+      setWeatherError('Location services are not supported by this browser.')
+      return
+    }
     setLocating(true)
+    setIsWeatherLoading(true)
+    setWeatherError(null)
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         try {
           const { latitude, longitude } = position.coords
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
-            { headers: { 'Accept-Language': 'en' } }
-          )
+          const params = new URLSearchParams({ lat: String(latitude), lon: String(longitude) })
+          const res = await fetch(`/api/weather?${params}`)
           const data = await res.json()
-          const addr = data.address
-          const city = addr.city || addr.town || addr.village || addr.county || ''
-          const country = addr.country || ''
-          setCurrentLocation(city && country ? `${city}, ${country}` : data.display_name)
-        } catch {}
-        setLocating(false)
+          if (!res.ok) throw new Error(data.error || 'Could not load weather for your location.')
+
+          const currentWeather = data as Weather
+          skipWeatherLookupFor.current = currentWeather.location
+          setCurrentLocation(currentWeather.location)
+          setWeather(currentWeather)
+        } catch (error) {
+          setWeather(null)
+          setWeatherError(error instanceof Error ? error.message : 'Could not load weather for your location.')
+        } finally {
+          setLocating(false)
+          setIsWeatherLoading(false)
+        }
       },
-      () => setLocating(false)
+      error => {
+        setWeatherError(
+          error.code === error.PERMISSION_DENIED
+            ? 'Location permission was denied. Allow it or enter a city.'
+            : error.code === error.TIMEOUT
+              ? 'Finding your location timed out. Please try again.'
+              : 'Your current location could not be determined.'
+        )
+        setWeather(null)
+        setLocating(false)
+        setIsWeatherLoading(false)
+      },
+      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 300_000 }
     )
   }
 
@@ -536,11 +703,24 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
             <ThemeToggle />
             <button
               type="button"
-              onClick={resetAll}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-[#7469C4] hover:bg-[#F2F0FD] dark:hover:bg-gray-800 transition-colors shrink-0"
-              aria-label="Reset"
+              onClick={() => setShowSaved(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F2F0FD] dark:bg-[#1E1B33] text-[#5E54A8] dark:text-[#9B92D8] text-xs font-semibold hover:bg-[#E7E4FA] dark:hover:bg-[#252240] transition-colors shrink-0"
             >
-              <Icon name="refresh" />
+              <Icon name="check" className="w-3.5 h-3.5" />
+              Saved
+              {savedSuggestions.length > 0 && (
+                <span className="w-4 h-4 rounded-full bg-[#7469C4] text-white text-[10px] font-bold flex items-center justify-center">
+                  {savedSuggestions.length}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={resetAll}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F2F0FD] dark:bg-[#1E1B33] text-[#5E54A8] dark:text-[#9B92D8] text-xs font-semibold hover:bg-[#E7E4FA] dark:hover:bg-[#252240] transition-colors shrink-0"
+            >
+              <Icon name="refresh" className="w-3.5 h-3.5" />
+              Reset
             </button>
             <Link
               href="/plan"
@@ -571,22 +751,39 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
           </div>
         </section>
 
-        <section className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-slate-100 dark:border-gray-800 flex items-center justify-between shadow-sm">
+        <section className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-slate-100 dark:border-gray-800 flex items-center justify-between shadow-sm" aria-live="polite">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-sky-50 flex items-center justify-center text-sky-500 text-xl">
-              ☁
+            <div
+              className="w-12 h-12 rounded-xl bg-sky-50 dark:bg-sky-950/40 flex items-center justify-center text-2xl"
+              role="img"
+              aria-label={weatherIcon.label}
+              title={weatherIcon.label}
+            >
+              {weatherIcon.symbol}
             </div>
             <div>
-              <p className="text-sm text-slate-500">Current Weather</p>
-              <p className="text-xl text-slate-800 dark:text-slate-200 font-bold">
-                {weather.temp} C <span className="text-sm text-slate-500 font-normal">{weather.condition}</span>
+              <p className="text-sm text-slate-500">
+                {weather ? `Current Weather · ${weather.location}` : 'Current Weather'}
               </p>
+              {isWeatherLoading ? (
+                <p className="text-sm text-slate-500">Loading current conditions…</p>
+              ) : weather ? (
+                <p className="text-xl text-slate-800 dark:text-slate-200 font-bold">
+                  {weather.temp}°C <span className="text-sm text-slate-500 font-normal">{weather.condition}</span>
+                </p>
+              ) : (
+                <p className={`text-sm ${weatherError ? 'text-red-600' : 'text-slate-400'}`}>
+                  {weatherError || 'Enter a destination or use your current location.'}
+                </p>
+              )}
             </div>
           </div>
-          <div className="hidden sm:flex items-center gap-4 text-xs text-slate-400">
-            <span>{weather.humidity}% humidity</span>
-            <span>{weather.wind} km/h wind</span>
-          </div>
+          {weather && (
+            <div className="hidden sm:flex items-center gap-4 text-xs text-slate-400">
+              <span>{weather.humidity}% humidity</span>
+              <span>{weather.wind} km/h wind</span>
+            </div>
+          )}
         </section>
 
         <section>
@@ -597,7 +794,7 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
             <Icon name="map-pin" className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               value={currentLocation}
-              onChange={event => setCurrentLocation(event.target.value)}
+              onChange={event => handleLocationChange(event.target.value)}
               placeholder="e.g. Shibuya, Tokyo or Paris, France..."
               className="w-full pl-10 pr-11 py-3 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C9C3F0] focus:border-[#9B92D8] text-sm dark:text-gray-100"
             />
@@ -626,11 +823,47 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
               <SelectableChip
                 key={option}
                 label={option}
-                selected={selectedRadius === option}
-                onClick={() => setSelectedRadius(option)}
+                selected={selectedRadius === option && !showCustomRadius && RADIUS_OPTIONS.includes(selectedRadius)}
+                onClick={() => { setSelectedRadius(option); setShowCustomRadius(false); setCustomRadiusInput('') }}
               />
             ))}
+            {!RADIUS_OPTIONS.includes(selectedRadius) && !showCustomRadius && (
+              <button
+                type="button"
+                onClick={() => { setShowCustomRadius(true); setCustomRadiusInput(selectedRadius) }}
+                className="px-3.5 py-2 rounded-xl border text-sm bg-[#7469C4] text-white border-[#7469C4] flex items-center gap-1.5"
+              >
+                {selectedRadius}
+                <Icon name="x" className="w-3 h-3" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowCustomRadius(v => !v)}
+              className={`px-3.5 py-2 rounded-xl border text-sm transition-colors ${
+                showCustomRadius
+                  ? 'bg-[#7469C4] text-white border-[#7469C4]'
+                  : 'bg-white dark:bg-gray-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-gray-700 hover:border-[#9B92D8] hover:bg-[#F2F0FD] dark:hover:bg-[#1E1B33]'
+              }`}
+            >
+              Other...
+            </button>
           </div>
+          {showCustomRadius && (
+            <CustomChipInput
+              value={customRadiusInput}
+              onChange={setCustomRadiusInput}
+              onConfirm={() => {
+                const val = customRadiusInput.trim()
+                if (!val) return
+                setSelectedRadius(val)
+                setShowCustomRadius(false)
+                setCustomRadiusInput('')
+              }}
+              onCancel={() => { setShowCustomRadius(false); setCustomRadiusInput('') }}
+              placeholder="e.g. Within 10 km, Walking distance…"
+            />
+          )}
         </section>
 
         <section>
@@ -711,7 +944,7 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
                 <button
                   key={option.key}
                   type="button"
-                  onClick={() => setFeeling(option.key)}
+                  onClick={() => { setFeeling(option.key); setShowCustomFeeling(false); setCustomFeelingInput('') }}
                   className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-colors ${
                     selected ? option.className : 'bg-white dark:bg-gray-800 border-slate-100 dark:border-gray-700 hover:border-slate-200 dark:hover:border-gray-600 text-slate-500 dark:text-slate-400'
                   }`}
@@ -721,7 +954,36 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
                 </button>
               )
             })}
+            <button
+              type="button"
+              onClick={() => setShowCustomFeeling(v => !v)}
+              className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-colors ${
+                showCustomFeeling || (feeling !== null && !FEELINGS.find(f => f.key === feeling))
+                  ? 'border-violet-300 bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300'
+                  : 'bg-white dark:bg-gray-800 border-slate-100 dark:border-gray-700 hover:border-slate-200 dark:hover:border-gray-600 text-slate-500 dark:text-slate-400'
+              }`}
+            >
+              <span className="text-2xl">✏️</span>
+              <span className="text-xs font-medium">
+                {feeling && !FEELINGS.find(f => f.key === feeling) ? feeling : 'Other'}
+              </span>
+            </button>
           </div>
+          {showCustomFeeling && (
+            <CustomChipInput
+              value={customFeelingInput}
+              onChange={setCustomFeelingInput}
+              onConfirm={() => {
+                const val = customFeelingInput.trim()
+                if (!val) return
+                setFeeling(val)
+                setShowCustomFeeling(false)
+                setCustomFeelingInput('')
+              }}
+              onCancel={() => { setShowCustomFeeling(false); setCustomFeelingInput('') }}
+              placeholder="e.g. Nostalgic, Excited, Reflective…"
+            />
+          )}
         </section>
 
         <section>
@@ -737,7 +999,36 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
                 onClick={() => togglePref(tag)}
               />
             ))}
+            {selectedPrefs.filter(p => !PREFERENCE_TAGS.includes(p)).map(tag => (
+              <SelectableChip key={tag} label={tag} selected onClick={() => togglePref(tag)} />
+            ))}
+            <button
+              type="button"
+              onClick={() => setShowCustomPref(v => !v)}
+              className={`px-3.5 py-2 rounded-xl border text-sm transition-colors ${
+                showCustomPref
+                  ? 'bg-[#7469C4] text-white border-[#7469C4]'
+                  : 'bg-white dark:bg-gray-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-gray-700 hover:border-[#9B92D8] hover:bg-[#F2F0FD] dark:hover:bg-[#1E1B33]'
+              }`}
+            >
+              Other...
+            </button>
           </div>
+          {showCustomPref && (
+            <CustomChipInput
+              value={customPrefInput}
+              onChange={setCustomPrefInput}
+              onConfirm={() => {
+                const val = customPrefInput.trim()
+                if (!val || selectedPrefs.includes(val)) return
+                setSelectedPrefs(prev => [...prev, val])
+                setCustomPrefInput('')
+                setShowCustomPref(false)
+              }}
+              onCancel={() => { setShowCustomPref(false); setCustomPrefInput('') }}
+              placeholder="e.g. Scenic viewpoints, Street art, Jazz bars…"
+            />
+          )}
         </section>
 
         <section>
@@ -790,7 +1081,7 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
           </button>
           {!canGenerate && (
             <p className="text-xs text-center text-slate-400 mt-2">
-              Enter your current destination, select your mood, and choose at least one preference.
+              Enter your current location, select your mood, and choose at least one preference.
             </p>
           )}
         </section>
@@ -800,10 +1091,10 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
           <section className="space-y-4">
             <div className="bg-[#7469C4] px-6 py-4 rounded-2xl flex items-center gap-3">
               <Icon name="sparkles" className="w-5 h-5 text-white" />
-              <h2 className="text-white text-lg font-bold">Deine personalisierten Vorschläge</h2>
+              <h2 className="text-white text-lg font-bold">Your personalized Suggestions</h2>
               {activeSuggestions.length < suggestions.filter(s => !s.skipped || true).length && (
                 <span className="ml-auto text-white/70 text-xs">
-                  {activeSuggestions.length} aktiv
+                  {activeSuggestions.length} active
                 </span>
               )}
             </div>
@@ -813,9 +1104,9 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
               <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">
                 <span className="text-xl">🤔</span>
                 <div>
-                  <p className="text-sm font-semibold text-amber-800">Haben sich deine Präferenzen geändert?</p>
+                  <p className="text-sm font-semibold text-amber-800">Changed your mind?</p>
                   <p className="text-xs text-amber-700 mt-0.5">
-                    Du hast bereits 3 Empfehlungen übersprungen. Scrolle nach oben und passe deine Stimmung oder Vorlieben an, oder generiere neu.
+                    You’ve skipped 3 suggestions in a row. Try adjusting your mood or preferences above, or generate new ones.
                   </p>
                 </div>
                 <button
@@ -831,37 +1122,42 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
             {suggestions.map((suggestion, index) => (
               <div
                 key={suggestion.id}
-                className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-all ${
-                  suggestion.skipped
-                    ? 'opacity-40 border-slate-100'
-                    : 'border-slate-100'
+                className={`rounded-2xl border shadow-sm overflow-hidden transition-all ${
+                  suggestion.isError
+                    ? 'bg-red-50 border-red-200'
+                    : suggestion.skipped
+                    ? 'bg-white opacity-40 border-slate-100'
+                    : 'bg-white border-slate-100'
                 }`}
               >
-                {/* Karten-Header */}
-                <div className={`px-5 py-3 flex items-center gap-2 border-b ${suggestion.skipped ? 'bg-slate-50 border-slate-100' : 'bg-[#F2F0FD] border-[#E7E4FA]'}`}>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${suggestion.skipped ? 'bg-slate-200 text-slate-400' : 'bg-[#7469C4] text-white'}`}>
-                    #{index + 1}
-                  </span>
-                  <span className="text-xs font-semibold text-slate-500 flex-1">
-                    {suggestion.skipped ? 'Übersprungen' : 'Empfehlung'}
-                  </span>
-                  {suggestion.skipped && (
-                    <span className="text-xs text-slate-400 flex items-center gap-1">
-                      <Icon name="skip" className="w-3 h-3" />
-                      Abgelehnt
+                {/* Card header — hidden for error cards */}
+                {!suggestion.isError && (
+                  <div className={`px-5 py-3 flex items-center gap-2 border-b ${suggestion.skipped ? 'bg-slate-50 border-slate-100' : 'bg-[#F2F0FD] border-[#E7E4FA]'}`}>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${suggestion.skipped ? 'bg-slate-200 text-slate-400' : 'bg-[#7469C4] text-white'}`}>
+                      #{index + 1}
                     </span>
-                  )}
-                </div>
+                    <span className="text-xs font-semibold text-slate-500 flex-1">
+                      {suggestion.skipped ? 'Skipped' : 'Suggestion'}
+                    </span>
+                    {suggestion.skipped && (
+                      <span className="text-xs text-slate-400 flex items-center gap-1">
+                        <Icon name="skip" className="w-3 h-3" />
+                        Dismissed
+                      </span>
+                    )}
+                  </div>
+                )}
 
-                {/* Karten-Inhalt */}
-                <div className="px-5 py-4 text-sm text-slate-700 leading-relaxed">
+                {/* Card content */}
+                <div className={`px-5 py-4 text-sm leading-relaxed ${suggestion.isError ? 'text-red-600 flex items-center gap-3' : 'text-slate-700'}`}>
+                  {suggestion.isError && <Icon name="x" className="w-4 h-4 shrink-0 text-red-400" />}
                   <ReactMarkdown components={mdComponents}>
                     {suggestion.content}
                   </ReactMarkdown>
                 </div>
 
                 {/* UC13: Aktions-Buttons — nur wenn nicht übersprungen */}
-                {!suggestion.skipped && (
+                {!suggestion.skipped && !suggestion.isError && (
                   <div className="px-5 py-3 border-t border-slate-100 flex gap-2">
                     <button
                       type="button"
@@ -870,15 +1166,20 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
                       className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 text-sm text-slate-500 hover:border-red-200 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
                     >
                       <Icon name="x" className="w-4 h-4" />
-                      Ablehnen
+                      Dismiss
                     </button>
                     <button
                       type="button"
-                      disabled={isGenerating}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-[#C9C3F0] text-sm text-[#5E54A8] hover:bg-[#F2F0FD] transition-colors disabled:opacity-40"
+                      onClick={() => handleSave(suggestion)}
+                      disabled={isGenerating || isSaved(suggestion.id)}
+                      className={`flex items-center gap-1.5 px-4 py-2 rounded-xl border text-sm transition-colors disabled:opacity-60 ${
+                        isSaved(suggestion.id)
+                          ? 'border-[#7469C4] bg-[#7469C4] text-white'
+                          : 'border-[#C9C3F0] text-[#5E54A8] hover:bg-[#F2F0FD]'
+                      }`}
                     >
                       <Icon name="check" className="w-4 h-4" />
-                      Merken
+                      {isSaved(suggestion.id) ? 'Saved' : 'Save'}
                     </button>
                   </div>
                 )}
@@ -889,7 +1190,7 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
             {isGenerating && suggestions.some(s => s.skipped) && (
               <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 flex items-center gap-3">
                 <span className="w-5 h-5 rounded-full border-2 border-[#9B92D8] border-t-[#7469C4] animate-spin shrink-0" />
-                <p className="text-sm text-slate-500">Neue Empfehlung wird geladen...</p>
+                <p className="text-sm text-slate-500">Loading new suggestion...</p>
               </div>
             )}
 
@@ -909,14 +1210,8 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
                 className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 hover:bg-slate-50 dark:hover:bg-gray-800 transition-colors text-sm text-slate-600 dark:text-slate-400 font-medium disabled:opacity-40"
               >
                 <Icon name="refresh" />
-                Alle neu generieren
+                Regenerate all
               </button>
-              <Link
-                href="/plan"
-                className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#7469C4] text-white hover:bg-[#5E54A8] transition-colors text-sm font-medium"
-              >
-                Komplette Reise planen
-              </Link>
             </div>
           </section>
         )}
@@ -925,6 +1220,66 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
           Powered by Gemini AI. Suggestions are AI-generated and should be verified.
         </p>
       </main>
+
+      {/* Saved suggestions panel */}
+      {showSaved && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setShowSaved(false)} />
+          <div className="relative w-full max-w-md bg-white dark:bg-gray-900 h-full shadow-2xl flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-gray-800">
+              <div className="flex items-center gap-2">
+                <Icon name="check" className="w-5 h-5 text-[#7469C4]" />
+                <h2 className="font-semibold text-slate-800 dark:text-gray-100">Saved Suggestions</h2>
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#7469C4] text-white">{savedSuggestions.length}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSaved(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <Icon name="x" className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+              {savedSuggestions.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center mt-8">Nothing saved yet.</p>
+              ) : (
+                savedSuggestions.map((s, i) => (
+                  <div key={s.id} className="bg-white dark:bg-gray-800 border border-slate-100 dark:border-gray-700 rounded-2xl shadow-sm overflow-hidden">
+                    <div className="px-4 py-2.5 bg-[#F2F0FD] dark:bg-[#1E1B33] border-b border-[#E7E4FA] dark:border-[#2A2550] flex items-center justify-between">
+                      <span className="text-xs font-bold text-[#7469C4]">#{i + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => setSavedSuggestions(prev => prev.filter(x => x.id !== s.id))}
+                        className="text-slate-400 hover:text-red-400 transition-colors"
+                        aria-label="Remove"
+                      >
+                        <Icon name="x" className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                      {s.content}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {savedSuggestions.length > 0 && (
+              <div className="px-4 py-3 border-t border-slate-100 dark:border-gray-800">
+                <button
+                  type="button"
+                  onClick={() => setSavedSuggestions([])}
+                  className="w-full py-2 rounded-xl border border-red-200 text-red-400 text-sm hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
