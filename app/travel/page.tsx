@@ -45,6 +45,7 @@ interface Suggestion {
   id: string
   content: string
   skipped: boolean
+  isError?: boolean
 }
 
 const PLACE_CATEGORIES: PlaceCategory[] = [
@@ -119,7 +120,12 @@ function Icon({
     ),
     plus: <path d="M12 5v14M5 12h14" />,
     sparkles: <path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Zm7 12 .8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15ZM5 14l.8 2.2L8 17l-2.2.8L5 20l-.8-2.2L2 17l2.2-.8L5 14Z" />,
-    refresh: <path d="M21 12a9 9 0 0 1-15.3 6.4M3 12A9 9 0 0 1 18.3 5.6M3 18v-6h6M21 6v6h-6" />,
+    refresh: (
+      <>
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+        <path d="M3 3v5h5" />
+      </>
+    ),
     x: <path d="M18 6 6 18M6 6l12 12" />,
     clock: (
       <>
@@ -175,6 +181,51 @@ function SelectableChip({
     >
       {label}
     </button>
+  )
+}
+
+function CustomChipInput({
+  value,
+  onChange,
+  onConfirm,
+  onCancel,
+  placeholder,
+}: {
+  value: string
+  onChange: (v: string) => void
+  onConfirm: () => void
+  onCancel: () => void
+  placeholder: string
+}) {
+  return (
+    <div className="flex gap-2 mt-2 w-full">
+      <input
+        autoFocus
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') onConfirm()
+          if (e.key === 'Escape') onCancel()
+        }}
+        placeholder={placeholder}
+        className="flex-1 px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C9C3F0] dark:text-gray-100 placeholder:text-slate-400"
+      />
+      <button
+        type="button"
+        disabled={!value.trim()}
+        onClick={onConfirm}
+        className="px-4 py-2 bg-[#7469C4] text-white text-sm rounded-xl hover:bg-[#5E54A8] disabled:opacity-40 transition-colors font-medium"
+      >
+        Add
+      </button>
+      <button
+        type="button"
+        onClick={onCancel}
+        className="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-gray-700 text-slate-400 hover:text-slate-600 transition-colors"
+      >
+        <Icon name="x" className="w-4 h-4" />
+      </button>
+    </div>
   )
 }
 
@@ -256,7 +307,7 @@ export default function TravelPage() {
   const [placeInput, setPlaceInput] = useState('')
   const [durationInput, setDurationInput] = useState('')
   const [categoryInput, setCategoryInput] = useState<PlaceCategory>('Restaurant')
-  const [feeling, setFeeling] = usePersistedState<Feeling | null>('travel_feeling', null)
+  const [feeling, setFeeling] = usePersistedState<string | null>('travel_feeling', null)
   const [selectedPrefs, setSelectedPrefs] = usePersistedState<string[]>('travel_prefs', [])
   const [selectedRadius, setSelectedRadius] = usePersistedState<string>('travel_radius', RADIUS_OPTIONS[0])
   const [selectedBudget, setSelectedBudget] = usePersistedState<string | null>('travel_budget', null)
@@ -276,6 +327,13 @@ export default function TravelPage() {
   const [whySection, setWhySection] = useState<string>('')
   const [consecutiveSkips, setConsecutiveSkips] = useState(0)
   const [showPrefsChangedHint, setShowPrefsChangedHint] = useState(false)
+
+  const [showCustomRadius, setShowCustomRadius] = useState(false)
+  const [customRadiusInput, setCustomRadiusInput] = useState('')
+  const [showCustomFeeling, setShowCustomFeeling] = useState(false)
+  const [customFeelingInput, setCustomFeelingInput] = useState('')
+  const [showCustomPref, setShowCustomPref] = useState(false)
+  const [customPrefInput, setCustomPrefInput] = useState('')
 
   const canGenerate = currentLocation.trim().length > 0 && feeling !== null && selectedPrefs.length > 0
 
@@ -499,8 +557,9 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
       if (!response.ok) {
         setSuggestions([{
           id: crypto.randomUUID(),
-          content: `Error: ${data.error || 'Could not generate recommendations.'}`,
+          content: "WanderAI couldn't generate suggestions right now. Please try again in a moment.",
           skipped: false,
+          isError: true,
         }])
         return
       }
@@ -519,11 +578,12 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
         content,
         skipped: false,
       })))
-    } catch (error) {
+    } catch {
       setSuggestions([{
         id: crypto.randomUUID(),
-        content: `Error: ${error instanceof Error ? error.message : 'Something went wrong.'}`,
+        content: "WanderAI couldn't generate suggestions right now. Please try again in a moment.",
         skipped: false,
+        isError: true,
       }])
     } finally {
       setIsGenerating(false)
@@ -557,6 +617,12 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
     setShowPrefsChangedHint(false)
     setWeather(null)
     setWeatherError(null)
+    setShowCustomRadius(false)
+    setCustomRadiusInput('')
+    setShowCustomFeeling(false)
+    setCustomFeelingInput('')
+    setShowCustomPref(false)
+    setCustomPrefInput('')
   }
 
   const hasSuggestions = suggestions.length > 0
@@ -638,12 +704,12 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
             <button
               type="button"
               onClick={() => setShowSaved(true)}
-              className="relative w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-[#7469C4] hover:bg-[#F2F0FD] dark:hover:bg-gray-800 transition-colors shrink-0"
-              aria-label="Saved suggestions"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F2F0FD] dark:bg-[#1E1B33] text-[#5E54A8] dark:text-[#9B92D8] text-xs font-semibold hover:bg-[#E7E4FA] dark:hover:bg-[#252240] transition-colors shrink-0"
             >
-              <Icon name="check" />
+              <Icon name="check" className="w-3.5 h-3.5" />
+              Saved
               {savedSuggestions.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#7469C4] text-white text-[10px] font-bold flex items-center justify-center">
+                <span className="w-4 h-4 rounded-full bg-[#7469C4] text-white text-[10px] font-bold flex items-center justify-center">
                   {savedSuggestions.length}
                 </span>
               )}
@@ -651,10 +717,10 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
             <button
               type="button"
               onClick={resetAll}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-[#7469C4] hover:bg-[#F2F0FD] dark:hover:bg-gray-800 transition-colors shrink-0"
-              aria-label="Reset"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F2F0FD] dark:bg-[#1E1B33] text-[#5E54A8] dark:text-[#9B92D8] text-xs font-semibold hover:bg-[#E7E4FA] dark:hover:bg-[#252240] transition-colors shrink-0"
             >
-              <Icon name="refresh" />
+              <Icon name="refresh" className="w-3.5 h-3.5" />
+              Reset
             </button>
             <Link
               href="/plan"
@@ -757,11 +823,47 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
               <SelectableChip
                 key={option}
                 label={option}
-                selected={selectedRadius === option}
-                onClick={() => setSelectedRadius(option)}
+                selected={selectedRadius === option && !showCustomRadius && RADIUS_OPTIONS.includes(selectedRadius)}
+                onClick={() => { setSelectedRadius(option); setShowCustomRadius(false); setCustomRadiusInput('') }}
               />
             ))}
+            {!RADIUS_OPTIONS.includes(selectedRadius) && !showCustomRadius && (
+              <button
+                type="button"
+                onClick={() => { setShowCustomRadius(true); setCustomRadiusInput(selectedRadius) }}
+                className="px-3.5 py-2 rounded-xl border text-sm bg-[#7469C4] text-white border-[#7469C4] flex items-center gap-1.5"
+              >
+                {selectedRadius}
+                <Icon name="x" className="w-3 h-3" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowCustomRadius(v => !v)}
+              className={`px-3.5 py-2 rounded-xl border text-sm transition-colors ${
+                showCustomRadius
+                  ? 'bg-[#7469C4] text-white border-[#7469C4]'
+                  : 'bg-white dark:bg-gray-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-gray-700 hover:border-[#9B92D8] hover:bg-[#F2F0FD] dark:hover:bg-[#1E1B33]'
+              }`}
+            >
+              Other...
+            </button>
           </div>
+          {showCustomRadius && (
+            <CustomChipInput
+              value={customRadiusInput}
+              onChange={setCustomRadiusInput}
+              onConfirm={() => {
+                const val = customRadiusInput.trim()
+                if (!val) return
+                setSelectedRadius(val)
+                setShowCustomRadius(false)
+                setCustomRadiusInput('')
+              }}
+              onCancel={() => { setShowCustomRadius(false); setCustomRadiusInput('') }}
+              placeholder="e.g. Within 10 km, Walking distance…"
+            />
+          )}
         </section>
 
         <section>
@@ -842,7 +944,7 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
                 <button
                   key={option.key}
                   type="button"
-                  onClick={() => setFeeling(option.key)}
+                  onClick={() => { setFeeling(option.key); setShowCustomFeeling(false); setCustomFeelingInput('') }}
                   className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-colors ${
                     selected ? option.className : 'bg-white dark:bg-gray-800 border-slate-100 dark:border-gray-700 hover:border-slate-200 dark:hover:border-gray-600 text-slate-500 dark:text-slate-400'
                   }`}
@@ -852,7 +954,36 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
                 </button>
               )
             })}
+            <button
+              type="button"
+              onClick={() => setShowCustomFeeling(v => !v)}
+              className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-colors ${
+                showCustomFeeling || (feeling !== null && !FEELINGS.find(f => f.key === feeling))
+                  ? 'border-violet-300 bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300'
+                  : 'bg-white dark:bg-gray-800 border-slate-100 dark:border-gray-700 hover:border-slate-200 dark:hover:border-gray-600 text-slate-500 dark:text-slate-400'
+              }`}
+            >
+              <span className="text-2xl">✏️</span>
+              <span className="text-xs font-medium">
+                {feeling && !FEELINGS.find(f => f.key === feeling) ? feeling : 'Other'}
+              </span>
+            </button>
           </div>
+          {showCustomFeeling && (
+            <CustomChipInput
+              value={customFeelingInput}
+              onChange={setCustomFeelingInput}
+              onConfirm={() => {
+                const val = customFeelingInput.trim()
+                if (!val) return
+                setFeeling(val)
+                setShowCustomFeeling(false)
+                setCustomFeelingInput('')
+              }}
+              onCancel={() => { setShowCustomFeeling(false); setCustomFeelingInput('') }}
+              placeholder="e.g. Nostalgic, Excited, Reflective…"
+            />
+          )}
         </section>
 
         <section>
@@ -868,7 +999,36 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
                 onClick={() => togglePref(tag)}
               />
             ))}
+            {selectedPrefs.filter(p => !PREFERENCE_TAGS.includes(p)).map(tag => (
+              <SelectableChip key={tag} label={tag} selected onClick={() => togglePref(tag)} />
+            ))}
+            <button
+              type="button"
+              onClick={() => setShowCustomPref(v => !v)}
+              className={`px-3.5 py-2 rounded-xl border text-sm transition-colors ${
+                showCustomPref
+                  ? 'bg-[#7469C4] text-white border-[#7469C4]'
+                  : 'bg-white dark:bg-gray-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-gray-700 hover:border-[#9B92D8] hover:bg-[#F2F0FD] dark:hover:bg-[#1E1B33]'
+              }`}
+            >
+              Other...
+            </button>
           </div>
+          {showCustomPref && (
+            <CustomChipInput
+              value={customPrefInput}
+              onChange={setCustomPrefInput}
+              onConfirm={() => {
+                const val = customPrefInput.trim()
+                if (!val || selectedPrefs.includes(val)) return
+                setSelectedPrefs(prev => [...prev, val])
+                setCustomPrefInput('')
+                setShowCustomPref(false)
+              }}
+              onCancel={() => { setShowCustomPref(false); setCustomPrefInput('') }}
+              placeholder="e.g. Scenic viewpoints, Street art, Jazz bars…"
+            />
+          )}
         </section>
 
         <section>
@@ -921,7 +1081,7 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
           </button>
           {!canGenerate && (
             <p className="text-xs text-center text-slate-400 mt-2">
-              Enter your current destination, select your mood, and choose at least one preference.
+              Enter your current location, select your mood, and choose at least one preference.
             </p>
           )}
         </section>
@@ -931,10 +1091,10 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
           <section className="space-y-4">
             <div className="bg-[#7469C4] px-6 py-4 rounded-2xl flex items-center gap-3">
               <Icon name="sparkles" className="w-5 h-5 text-white" />
-              <h2 className="text-white text-lg font-bold">Deine personalisierten Vorschläge</h2>
+              <h2 className="text-white text-lg font-bold">Your personalized Suggestions</h2>
               {activeSuggestions.length < suggestions.filter(s => !s.skipped || true).length && (
                 <span className="ml-auto text-white/70 text-xs">
-                  {activeSuggestions.length} aktiv
+                  {activeSuggestions.length} active
                 </span>
               )}
             </div>
@@ -962,37 +1122,42 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
             {suggestions.map((suggestion, index) => (
               <div
                 key={suggestion.id}
-                className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-all ${
-                  suggestion.skipped
-                    ? 'opacity-40 border-slate-100'
-                    : 'border-slate-100'
+                className={`rounded-2xl border shadow-sm overflow-hidden transition-all ${
+                  suggestion.isError
+                    ? 'bg-red-50 border-red-200'
+                    : suggestion.skipped
+                    ? 'bg-white opacity-40 border-slate-100'
+                    : 'bg-white border-slate-100'
                 }`}
               >
-                {/* Karten-Header */}
-                <div className={`px-5 py-3 flex items-center gap-2 border-b ${suggestion.skipped ? 'bg-slate-50 border-slate-100' : 'bg-[#F2F0FD] border-[#E7E4FA]'}`}>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${suggestion.skipped ? 'bg-slate-200 text-slate-400' : 'bg-[#7469C4] text-white'}`}>
-                    #{index + 1}
-                  </span>
-                  <span className="text-xs font-semibold text-slate-500 flex-1">
-                    {suggestion.skipped ? 'Skipped' : 'Suggestion'}
-                  </span>
-                  {suggestion.skipped && (
-                    <span className="text-xs text-slate-400 flex items-center gap-1">
-                      <Icon name="skip" className="w-3 h-3" />
-                      Dismissed
+                {/* Card header — hidden for error cards */}
+                {!suggestion.isError && (
+                  <div className={`px-5 py-3 flex items-center gap-2 border-b ${suggestion.skipped ? 'bg-slate-50 border-slate-100' : 'bg-[#F2F0FD] border-[#E7E4FA]'}`}>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${suggestion.skipped ? 'bg-slate-200 text-slate-400' : 'bg-[#7469C4] text-white'}`}>
+                      #{index + 1}
                     </span>
-                  )}
-                </div>
+                    <span className="text-xs font-semibold text-slate-500 flex-1">
+                      {suggestion.skipped ? 'Skipped' : 'Suggestion'}
+                    </span>
+                    {suggestion.skipped && (
+                      <span className="text-xs text-slate-400 flex items-center gap-1">
+                        <Icon name="skip" className="w-3 h-3" />
+                        Dismissed
+                      </span>
+                    )}
+                  </div>
+                )}
 
-                {/* Karten-Inhalt */}
-                <div className="px-5 py-4 text-sm text-slate-700 leading-relaxed">
+                {/* Card content */}
+                <div className={`px-5 py-4 text-sm leading-relaxed ${suggestion.isError ? 'text-red-600 flex items-center gap-3' : 'text-slate-700'}`}>
+                  {suggestion.isError && <Icon name="x" className="w-4 h-4 shrink-0 text-red-400" />}
                   <ReactMarkdown components={mdComponents}>
                     {suggestion.content}
                   </ReactMarkdown>
                 </div>
 
                 {/* UC13: Aktions-Buttons — nur wenn nicht übersprungen */}
-                {!suggestion.skipped && (
+                {!suggestion.skipped && !suggestion.isError && (
                   <div className="px-5 py-3 border-t border-slate-100 flex gap-2">
                     <button
                       type="button"
@@ -1047,12 +1212,6 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
                 <Icon name="refresh" />
                 Regenerate all
               </button>
-              <Link
-                href="/plan"
-                className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#7469C4] text-white hover:bg-[#5E54A8] transition-colors text-sm font-medium"
-              >
-                Plan a full trip
-              </Link>
             </div>
           </section>
         )}
