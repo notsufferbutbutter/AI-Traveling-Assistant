@@ -48,10 +48,10 @@ const TOTAL_STEPS = STEPS.length
 
 // US8: Reiseplan ändern / neu generieren
 const STEP_LABELS: Record<string, string> = {
-  origin: 'Von', destination: 'Nach', groupSize: 'Reisende',
-  duration: 'Dauer', budget: 'Budget', accommodation: 'Unterkunft',
-  foodType: 'Essen', allergies: 'Allergien', activities: 'Aktivitäten',
-  travelStyle: 'Reisestil',
+  origin: 'From', destination: 'To', groupSize: 'Travelers',
+  duration: 'Duration', budget: 'Budget', accommodation: 'Accommodation',
+  foodType: 'Food', allergies: 'Allergies', activities: 'Activities',
+  travelStyle: 'Travel Style',
 }
 
 // --- Icons ---
@@ -279,7 +279,7 @@ export default function PlanPage() {
   async function handleEditSave(updated: Partial<TravelPreferences>) {
     setShowEditPanel(false)
     setPreferences(updated)
-    addBotMessage('✏️ Präferenzen aktualisiert! Was soll ich neu planen?')
+    addBotMessage('✏️ Preferences updated! What would you like to re-plan?')
     setPhase('menu')
     setGeminiMessages([])
   }
@@ -337,7 +337,7 @@ export default function PlanPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F2F0FD] text-[#5E54A8] text-xs font-semibold hover:bg-[#E7E4FA] transition-colors shrink-0"
             >
               <EditIcon />
-              Bearbeiten
+              Edit
             </button>
           )}
 
@@ -481,12 +481,12 @@ export default function PlanPage() {
               >
                 ✕
               </button>
-              <p className="text-white font-semibold text-sm flex-1">Reiseplan bearbeiten</p>
+              <p className="text-white font-semibold text-sm flex-1">Edit Travel Plan</p>
               <button
                 onClick={() => handleEditSave(preferences)}
                 className="px-3 py-1.5 bg-white text-[#7469C4] rounded-lg text-xs font-semibold hover:bg-[#F2F0FD] transition-colors"
               >
-                Neu generieren
+                Regenerate
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">

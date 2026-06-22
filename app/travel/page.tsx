@@ -212,20 +212,24 @@ function getLocalWeather() {
 
 // UC13: Hilfsfunktion — teilt Gemini-Text in 3 Empfehlungen auf
 function splitSuggestions(text: string): string[] {
+  // Strip any intro sentence(s) before the first numbered item
+  const firstNumberedIndex = text.search(/(?:^|\n)(##\s*\d+\.|\*\*\d+\.|\d+\.\s+\*\*|\d+\.\s+\S)/)
+  const body = firstNumberedIndex > 0 ? text.slice(firstNumberedIndex).trim() : text
+
   // Versuche bei nummerierten Überschriften zu trennen (## 1. oder **1.** oder 1.)
-  const byNumberedHeading = text.split(/\n(?=##\s*\d+\.|\*\*\d+\.|(?<!\S)\d+\.\s+\*\*)/)
+  const byNumberedHeading = body.split(/\n(?=##\s*\d+\.|\*\*\d+\.|(?<!\S)\d+\.\s+\*\*)/)
   if (byNumberedHeading.length >= 3) {
     return byNumberedHeading.slice(0, 3).map(s => s.trim()).filter(Boolean)
   }
 
   // Fallback: bei doppeltem Zeilenumbruch + Ziffer trennen
-  const byNewline = text.split(/\n{2,}(?=\d+\.)/)
+  const byNewline = body.split(/\n{2,}(?=\d+\.)/)
   if (byNewline.length >= 3) {
     return byNewline.slice(0, 3).map(s => s.trim()).filter(Boolean)
   }
 
   // Letzter Fallback: gesamten Text als eine Karte
-  return [text]
+  return [body]
 }
 
 export default function TravelPage() {
@@ -241,6 +245,8 @@ export default function TravelPage() {
   const [additionalNotes, setAdditionalNotes] = usePersistedState<string>('travel_notes', '')
   const [isGenerating, setIsGenerating] = useState(false)
   const [locating, setLocating] = useState(false)
+  const [savedSuggestions, setSavedSuggestions] = usePersistedState<Suggestion[]>('travel_saved_suggestions', [])
+  const [showSaved, setShowSaved] = useState(false)
 
   // UC13: Empfehlungen als einzelne Karten statt einem String
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
@@ -276,6 +282,16 @@ export default function TravelPage() {
   }
 
   // UC13: Empfehlung überspringen
+  function handleSave(suggestion: Suggestion) {
+    setSavedSuggestions(prev =>
+      prev.some(s => s.id === suggestion.id) ? prev : [...prev, suggestion]
+    )
+  }
+
+  function isSaved(id: string) {
+    return savedSuggestions.some(s => s.id === id)
+  }
+
   async function handleSkip(id: string) {
     setSuggestions(prev =>
       prev.map(s => s.id === id ? { ...s, skipped: true } : s)
@@ -534,6 +550,19 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
+            <button
+              type="button"
+              onClick={() => setShowSaved(true)}
+              className="relative w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-[#7469C4] hover:bg-[#F2F0FD] dark:hover:bg-gray-800 transition-colors shrink-0"
+              aria-label="Saved suggestions"
+            >
+              <Icon name="check" />
+              {savedSuggestions.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#7469C4] text-white text-[10px] font-bold flex items-center justify-center">
+                  {savedSuggestions.length}
+                </span>
+              )}
+            </button>
             <button
               type="button"
               onClick={resetAll}
@@ -813,9 +842,9 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
               <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">
                 <span className="text-xl">🤔</span>
                 <div>
-                  <p className="text-sm font-semibold text-amber-800">Haben sich deine Präferenzen geändert?</p>
+                  <p className="text-sm font-semibold text-amber-800">Changed your mind?</p>
                   <p className="text-xs text-amber-700 mt-0.5">
-                    Du hast bereits 3 Empfehlungen übersprungen. Scrolle nach oben und passe deine Stimmung oder Vorlieben an, oder generiere neu.
+                    You've skipped 3 suggestions in a row. Try adjusting your mood or preferences above, or generate new ones.
                   </p>
                 </div>
                 <button
@@ -843,12 +872,12 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
                     #{index + 1}
                   </span>
                   <span className="text-xs font-semibold text-slate-500 flex-1">
-                    {suggestion.skipped ? 'Übersprungen' : 'Empfehlung'}
+                    {suggestion.skipped ? 'Skipped' : 'Suggestion'}
                   </span>
                   {suggestion.skipped && (
                     <span className="text-xs text-slate-400 flex items-center gap-1">
                       <Icon name="skip" className="w-3 h-3" />
-                      Abgelehnt
+                      Dismissed
                     </span>
                   )}
                 </div>
@@ -870,15 +899,20 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
                       className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 text-sm text-slate-500 hover:border-red-200 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
                     >
                       <Icon name="x" className="w-4 h-4" />
-                      Ablehnen
+                      Dismiss
                     </button>
                     <button
                       type="button"
-                      disabled={isGenerating}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-[#C9C3F0] text-sm text-[#5E54A8] hover:bg-[#F2F0FD] transition-colors disabled:opacity-40"
+                      onClick={() => handleSave(suggestion)}
+                      disabled={isGenerating || isSaved(suggestion.id)}
+                      className={`flex items-center gap-1.5 px-4 py-2 rounded-xl border text-sm transition-colors disabled:opacity-60 ${
+                        isSaved(suggestion.id)
+                          ? 'border-[#7469C4] bg-[#7469C4] text-white'
+                          : 'border-[#C9C3F0] text-[#5E54A8] hover:bg-[#F2F0FD]'
+                      }`}
                     >
                       <Icon name="check" className="w-4 h-4" />
-                      Merken
+                      {isSaved(suggestion.id) ? 'Saved' : 'Save'}
                     </button>
                   </div>
                 )}
@@ -889,7 +923,7 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
             {isGenerating && suggestions.some(s => s.skipped) && (
               <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 flex items-center gap-3">
                 <span className="w-5 h-5 rounded-full border-2 border-[#9B92D8] border-t-[#7469C4] animate-spin shrink-0" />
-                <p className="text-sm text-slate-500">Neue Empfehlung wird geladen...</p>
+                <p className="text-sm text-slate-500">Loading new suggestion...</p>
               </div>
             )}
 
@@ -909,13 +943,13 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
                 className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 hover:bg-slate-50 dark:hover:bg-gray-800 transition-colors text-sm text-slate-600 dark:text-slate-400 font-medium disabled:opacity-40"
               >
                 <Icon name="refresh" />
-                Alle neu generieren
+                Regenerate all
               </button>
               <Link
                 href="/plan"
                 className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#7469C4] text-white hover:bg-[#5E54A8] transition-colors text-sm font-medium"
               >
-                Komplette Reise planen
+                Plan a full trip
               </Link>
             </div>
           </section>
@@ -925,6 +959,66 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
           Powered by Gemini AI. Suggestions are AI-generated and should be verified.
         </p>
       </main>
+
+      {/* Saved suggestions panel */}
+      {showSaved && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setShowSaved(false)} />
+          <div className="relative w-full max-w-md bg-white dark:bg-gray-900 h-full shadow-2xl flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-gray-800">
+              <div className="flex items-center gap-2">
+                <Icon name="check" className="w-5 h-5 text-[#7469C4]" />
+                <h2 className="font-semibold text-slate-800 dark:text-gray-100">Saved Suggestions</h2>
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#7469C4] text-white">{savedSuggestions.length}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSaved(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <Icon name="x" className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+              {savedSuggestions.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center mt-8">Nothing saved yet.</p>
+              ) : (
+                savedSuggestions.map((s, i) => (
+                  <div key={s.id} className="bg-white dark:bg-gray-800 border border-slate-100 dark:border-gray-700 rounded-2xl shadow-sm overflow-hidden">
+                    <div className="px-4 py-2.5 bg-[#F2F0FD] dark:bg-[#1E1B33] border-b border-[#E7E4FA] dark:border-[#2A2550] flex items-center justify-between">
+                      <span className="text-xs font-bold text-[#7469C4]">#{i + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => setSavedSuggestions(prev => prev.filter(x => x.id !== s.id))}
+                        className="text-slate-400 hover:text-red-400 transition-colors"
+                        aria-label="Remove"
+                      >
+                        <Icon name="x" className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                      {s.content}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {savedSuggestions.length > 0 && (
+              <div className="px-4 py-3 border-t border-slate-100 dark:border-gray-800">
+                <button
+                  type="button"
+                  onClick={() => setSavedSuggestions([])}
+                  className="w-full py-2 rounded-xl border border-red-200 text-red-400 text-sm hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
