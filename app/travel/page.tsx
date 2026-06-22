@@ -82,7 +82,7 @@ function Icon({
   name,
   className = 'w-4 h-4',
 }: {
-  name: 'arrow-left' | 'compass' | 'map-pin' | 'plus' | 'sparkles' | 'refresh' | 'x' | 'clock'
+  name: 'arrow-left' | 'compass' | 'map-pin' | 'plus' | 'sparkles' | 'refresh' | 'x' | 'clock' | 'locate'
   className?: string
 }) {
   const paths = {
@@ -107,6 +107,12 @@ function Icon({
       <>
         <circle cx="12" cy="12" r="10" />
         <path d="M12 6v6l4 2" />
+      </>
+    ),
+    locate: (
+      <>
+        <circle cx="12" cy="12" r="3" />
+        <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
       </>
     ),
   }
@@ -206,6 +212,7 @@ export default function TravelPage() {
   const [additionalNotes, setAdditionalNotes] = usePersistedState<string>('travel_notes', '')
   const [isGenerating, setIsGenerating] = useState(false)
   const [suggestions, setSuggestions] = useState<string | null>(null)
+  const [locating, setLocating] = useState(false)
 
   const weather = getLocalWeather()
   const canGenerate = currentLocation.trim().length > 0 && feeling !== null && selectedPrefs.length > 0
@@ -330,6 +337,29 @@ End with a short section titled "Why These Match You".`
     setSuggestions(null)
   }
 
+  async function getDeviceLocation() {
+    if (!navigator.geolocation) return
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
+            { headers: { 'Accept-Language': 'en' } }
+          )
+          const data = await res.json()
+          const addr = data.address
+          const city = addr.city || addr.town || addr.village || addr.county || ''
+          const country = addr.country || ''
+          setCurrentLocation(city && country ? `${city}, ${country}` : data.display_name)
+        } catch {}
+        setLocating(false)
+      },
+      () => setLocating(false)
+    )
+  }
+
   return (
     <div className="min-h-screen bg-[#F5F4FD] text-slate-900">
       <header className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-slate-200 px-4 md:px-6 py-3">
@@ -350,8 +380,8 @@ End with a short section titled "Why These Match You".`
             <button
               type="button"
               onClick={resetAll}
-              className="p-2 rounded-xl hover:bg-slate-100 transition-colors text-slate-500"
-              title="Reset"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-[#7469C4] hover:bg-[#F2F0FD] transition-colors shrink-0"
+              aria-label="Reset"
             >
               <Icon name="refresh" />
             </button>
@@ -412,8 +442,21 @@ End with a short section titled "Why These Match You".`
               value={currentLocation}
               onChange={event => setCurrentLocation(event.target.value)}
               placeholder="e.g. Shibuya, Tokyo or Paris, France..."
-              className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C9C3F0] focus:border-[#9B92D8] text-sm"
+              className="w-full pl-10 pr-11 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C9C3F0] focus:border-[#9B92D8] text-sm"
             />
+            <button
+              type="button"
+              onClick={getDeviceLocation}
+              disabled={locating}
+              title="Use my location"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-[#7469C4] transition-colors disabled:opacity-40"
+            >
+              {locating ? (
+                <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin block" />
+              ) : (
+                <Icon name="locate" className="w-4 h-4" />
+              )}
+            </button>
           </div>
         </section>
 
