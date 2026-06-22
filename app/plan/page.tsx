@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import ReactMarkdown from 'react-markdown'
+import { usePersistedState } from '@/hooks/usePersistedState'
 
 // --- Types ---
 
@@ -104,17 +105,18 @@ export default function PlanPage() {
   const searchParams = useSearchParams()
   const prefilledDestination = searchParams.get('destination')
 
-  const [messages, setMessages] = useState<Message[]>([
+  const [messages, setMessages] = usePersistedState<Message[]>('plan_messages', [
     { id: '0', role: 'bot', content: STEPS[0].text },
   ])
-  const [currentStep, setCurrentStep] = useState(0)
-  const [preferences, setPreferences] = useState<Partial<TravelPreferences>>(
+  const [currentStep, setCurrentStep] = usePersistedState<number>('plan_step', 0)
+  const [preferences, setPreferences] = usePersistedState<Partial<TravelPreferences>>(
+    'plan_preferences',
     prefilledDestination ? { destination: prefilledDestination } : {}
   )
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [phase, setPhase] = useState<'collecting' | 'menu' | 'recommending'>('collecting')
-  const [geminiMessages, setGeminiMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
+  const [phase, setPhase] = usePersistedState<'collecting' | 'menu' | 'recommending'>('plan_phase', 'collecting')
+  const [geminiMessages, setGeminiMessages] = usePersistedState<{ role: 'user' | 'assistant'; content: string }[]>('plan_gemini_messages', [])
   const [pendingMulti, setPendingMulti] = useState<string[]>([])
 
   const messagesEndRef = useRef<HTMLDivElement>(null)

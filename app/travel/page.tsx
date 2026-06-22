@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useCallback, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
+import { usePersistedState } from '@/hooks/usePersistedState'
 
 type Feeling =
   | 'energetic'
@@ -193,16 +194,16 @@ function getLocalWeather() {
 }
 
 export default function TravelPage() {
-  const [visitedPlaces, setVisitedPlaces] = useState<VisitedPlace[]>([])
+  const [visitedPlaces, setVisitedPlaces] = usePersistedState<VisitedPlace[]>('travel_visited_places', [])
   const [placeInput, setPlaceInput] = useState('')
   const [durationInput, setDurationInput] = useState('')
   const [categoryInput, setCategoryInput] = useState<PlaceCategory>('Restaurant')
-  const [feeling, setFeeling] = useState<Feeling | null>(null)
-  const [selectedPrefs, setSelectedPrefs] = useState<string[]>([])
-  const [selectedRadius, setSelectedRadius] = useState(RADIUS_OPTIONS[0])
-  const [selectedBudget, setSelectedBudget] = useState<string | null>(null)
-  const [currentLocation, setCurrentLocation] = useState('')
-  const [additionalNotes, setAdditionalNotes] = useState('')
+  const [feeling, setFeeling] = usePersistedState<Feeling | null>('travel_feeling', null)
+  const [selectedPrefs, setSelectedPrefs] = usePersistedState<string[]>('travel_prefs', [])
+  const [selectedRadius, setSelectedRadius] = usePersistedState<string>('travel_radius', RADIUS_OPTIONS[0])
+  const [selectedBudget, setSelectedBudget] = usePersistedState<string | null>('travel_budget', null)
+  const [currentLocation, setCurrentLocation] = usePersistedState<string>('travel_location', '')
+  const [additionalNotes, setAdditionalNotes] = usePersistedState<string>('travel_notes', '')
   const [isGenerating, setIsGenerating] = useState(false)
   const [suggestions, setSuggestions] = useState<string | null>(null)
 
