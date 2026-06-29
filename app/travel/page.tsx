@@ -262,13 +262,6 @@ function PlaceRow({ place, onRemove }: { place: VisitedPlace; onRemove: () => vo
 }
 
 // UC13: Hilfsfunktion — teilt Gemini-Text in 3 Empfehlungen auf
-function stripLeadingNumber(text: string): string {
-  return text
-    .replace(/^(#{1,3}\s*)\d+\.\s*/, '$1')
-    .replace(/^\*\*\d+\.\s*/, '**')
-    .replace(/^\d+\.\s*/, '')
-}
-
 function splitSuggestions(text: string): string[] {
   // Strip any intro sentence(s) before the first numbered item
   const firstNumberedIndex = text.search(/(?:^|\n)(##\s*\d+\.|\*\*\d+\.|\d+\.\s+\*\*|\d+\.\s+\S)/)
@@ -277,13 +270,13 @@ function splitSuggestions(text: string): string[] {
   // Versuche bei nummerierten Überschriften zu trennen (## 1. oder **1.** oder 1.)
   const byNumberedHeading = body.split(/\n(?=##\s*\d+\.|\*\*\d+\.|(?<!\S)\d+\.\s+\*\*)/)
   if (byNumberedHeading.length >= 3) {
-    return byNumberedHeading.slice(0, 3).map(s => stripLeadingNumber(s.trim())).filter(Boolean)
+    return byNumberedHeading.slice(0, 3).map(s => s.trim()).filter(Boolean)
   }
 
   // Fallback: bei doppeltem Zeilenumbruch + Ziffer trennen
   const byNewline = body.split(/\n{2,}(?=\d+\.)/)
   if (byNewline.length >= 3) {
-    return byNewline.slice(0, 3).map(s => stripLeadingNumber(s.trim())).filter(Boolean)
+    return byNewline.slice(0, 3).map(s => s.trim()).filter(Boolean)
   }
 
   // Letzter Fallback: gesamten Text als eine Karte
@@ -633,6 +626,10 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
   }
 
   const hasSuggestions = suggestions.length > 0
+
+  function toMd(text: string) {
+    return text.replace(/([^\n])\n([^\n])/g, '$1\n\n$2')
+  }
 
   // Markdown-Render-Komponenten (wiederverwendet)
   const mdComponents = {
@@ -1159,7 +1156,7 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
                 <div className={`px-5 py-4 text-sm leading-relaxed ${suggestion.isError ? 'text-red-600 flex items-center gap-3' : 'text-slate-700'}`}>
                   {suggestion.isError && <Icon name="x" className="w-4 h-4 shrink-0 text-red-400" />}
                   <ReactMarkdown components={mdComponents}>
-                    {suggestion.content}
+                    {toMd(suggestion.content)}
                   </ReactMarkdown>
                 </div>
 
@@ -1204,7 +1201,7 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
             {/* UC13: "Why These Match You" Abschnitt */}
             {whySection && activeSuggestions.length > 0 && (
               <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 text-sm text-slate-700">
-                <ReactMarkdown components={mdComponents}>{whySection}</ReactMarkdown>
+                <ReactMarkdown components={mdComponents}>{toMd(whySection)}</ReactMarkdown>
               </div>
             )}
 
@@ -1270,7 +1267,7 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
                         </button>
                       </div>
                       <div className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-                        <ReactMarkdown components={mdComponents}>{s.content}</ReactMarkdown>
+                        <ReactMarkdown components={mdComponents}>{toMd(s.content)}</ReactMarkdown>
                       </div>
                       {placeName && (
                         <div className="px-4 pb-3 border-t border-slate-100 dark:border-gray-700 pt-2">
