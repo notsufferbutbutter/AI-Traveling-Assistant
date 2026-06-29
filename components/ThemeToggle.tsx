@@ -1,16 +1,22 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useTheme } from './ThemeProvider'
 
 export function ThemeToggle() {
   const { theme, toggle } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => { setMounted(true) }, [])
+
   return (
     <button
       onClick={toggle}
       className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-[#7469C4] hover:bg-[#F2F0FD] dark:hover:bg-gray-800 transition-colors shrink-0"
-      aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      aria-label={mounted ? (theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode') : 'Toggle theme'}
+      suppressHydrationWarning
     >
-      {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+      {mounted ? (theme === 'dark' ? <SunIcon /> : <MoonIcon />) : <MoonIcon />}
     </button>
   )
 }
