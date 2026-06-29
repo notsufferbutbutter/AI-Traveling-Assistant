@@ -627,6 +627,10 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
 
   const hasSuggestions = suggestions.length > 0
 
+  function toMd(text: string) {
+    return text.replace(/([^\n])\n([^\n])/g, '$1\n\n$2')
+  }
+
   // Markdown-Render-Komponenten (wiederverwendet)
   const mdComponents = {
     h1: ({ children }: { children?: React.ReactNode }) => <h3 className="text-xl font-bold text-slate-900 mt-4 mb-2 first:mt-0">{children}</h3>,
@@ -1152,7 +1156,7 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
                 <div className={`px-5 py-4 text-sm leading-relaxed ${suggestion.isError ? 'text-red-600 flex items-center gap-3' : 'text-slate-700'}`}>
                   {suggestion.isError && <Icon name="x" className="w-4 h-4 shrink-0 text-red-400" />}
                   <ReactMarkdown components={mdComponents}>
-                    {suggestion.content}
+                    {toMd(suggestion.content)}
                   </ReactMarkdown>
                 </div>
 
@@ -1197,7 +1201,7 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
             {/* UC13: "Why These Match You" Abschnitt */}
             {whySection && activeSuggestions.length > 0 && (
               <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 text-sm text-slate-700">
-                <ReactMarkdown components={mdComponents}>{whySection}</ReactMarkdown>
+                <ReactMarkdown components={mdComponents}>{toMd(whySection)}</ReactMarkdown>
               </div>
             )}
 
@@ -1262,8 +1266,8 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
                           <Icon name="x" className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                      <div className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
-                        {s.content}
+                      <div className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                        <ReactMarkdown components={mdComponents}>{toMd(s.content)}</ReactMarkdown>
                       </div>
                       {placeName && (
                         <div className="px-4 pb-3 border-t border-slate-100 dark:border-gray-700 pt-2">
