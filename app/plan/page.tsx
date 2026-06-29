@@ -137,6 +137,19 @@ function OptionalPreferencesFields({
   preferences: Partial<TravelPreferences>
   onChange: (field: keyof TravelPreferences, value: string) => void
 }) {
+  const [otherSelectActive, setOtherSelectActive] = useState<Record<string, boolean>>(() => ({
+    accommodation: !!preferences.accommodation && !ACCOMMODATION_OPTIONS.includes(preferences.accommodation),
+    foodType: !!preferences.foodType && !FOOD_OPTIONS.includes(preferences.foodType),
+    travelStyle: !!preferences.travelStyle && !TRAVEL_STYLE_OPTIONS.includes(preferences.travelStyle),
+  }))
+  const [otherSelectText, setOtherSelectText] = useState<Record<string, string>>(() => ({
+    accommodation: (preferences.accommodation && !ACCOMMODATION_OPTIONS.includes(preferences.accommodation)) ? preferences.accommodation : '',
+    foodType: (preferences.foodType && !FOOD_OPTIONS.includes(preferences.foodType)) ? preferences.foodType : '',
+    travelStyle: (preferences.travelStyle && !TRAVEL_STYLE_OPTIONS.includes(preferences.travelStyle)) ? preferences.travelStyle : '',
+  }))
+  const [otherChipActive, setOtherChipActive] = useState<Record<string, boolean>>({})
+  const [otherChipText, setOtherChipText] = useState<Record<string, string>>({})
+
   function selectedValues(field: 'allergies' | 'activities') {
     return (preferences[field] ?? '').split(',').map(value => value.trim()).filter(Boolean)
   }
@@ -154,54 +167,143 @@ function OptionalPreferencesFields({
     onChange(field, next.join(', '))
   }
 
+  function addCustomChipValue(field: 'allergies' | 'activities') {
+    const text = otherChipText[field]?.trim()
+    if (!text) return
+    toggleValue(field, text)
+    setOtherChipText(prev => ({ ...prev, [field]: '' }))
+    setOtherChipActive(prev => ({ ...prev, [field]: false }))
+  }
+
   function renderChips(field: 'allergies' | 'activities', options: string[]) {
     const selected = selectedValues(field)
+    const customValues = selected.filter(v => !options.includes(v) && v !== 'none')
+    const isOtherInputVisible = !!otherChipActive[field]
+
     return (
-      <div className="flex flex-wrap gap-2">
-        {options.map(option => (
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-2">
+          {options.map(option => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => toggleValue(field, option)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                selected.includes(option)
+                  ? 'border-[#7469C4] bg-[#7469C4] text-white'
+                  : 'border-slate-200 bg-white text-slate-600 hover:border-[#9B92D8] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300'
+              }`}
+            >
+              {option}
+            </button>
+          ))}
+          {customValues.map(cv => (
+            <button
+              key={cv}
+              type="button"
+              onClick={() => toggleValue(field, cv)}
+              className="flex items-center gap-1 rounded-full border border-[#7469C4] bg-[#7469C4] px-3 py-1.5 text-xs font-medium text-white"
+            >
+              {cv} <span className="opacity-70">×</span>
+            </button>
+          ))}
           <button
-            key={option}
             type="button"
-            onClick={() => toggleValue(field, option)}
+            onClick={() => setOtherChipActive(prev => ({ ...prev, [field]: !prev[field] }))}
             className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-              selected.includes(option)
+              isOtherInputVisible
                 ? 'border-[#7469C4] bg-[#7469C4] text-white'
                 : 'border-slate-200 bg-white text-slate-600 hover:border-[#9B92D8] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300'
             }`}
           >
-            {option}
+            Other
           </button>
-        ))}
+        </div>
+        {isOtherInputVisible && (
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Type and press Enter..."
+              value={otherChipText[field] ?? ''}
+              onChange={e => setOtherChipText(prev => ({ ...prev, [field]: e.target.value }))}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  addCustomChipValue(field)
+                }
+              }}
+              className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs outline-none focus:border-[#9B92D8] focus:ring-2 focus:ring-[#C9C3F0] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 placeholder:text-slate-400"
+              autoFocus
+            />
+            <button
+              type="button"
+              onClick={() => addCustomChipValue(field)}
+              disabled={!otherChipText[field]?.trim()}
+              className="rounded-xl bg-[#7469C4] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#5E54A8] disabled:opacity-40"
+            >
+              Add
+            </button>
+          </div>
+        )}
       </div>
     )
   }
 
   const selectClassName = 'mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-[#9B92D8] focus:ring-2 focus:ring-[#C9C3F0] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200'
 
+  function renderSelectWithOther(
+    field: 'accommodation' | 'foodType' | 'travelStyle',
+    options: string[]
+  ) {
+    const isOther = !!otherSelectActive[field]
+    const selectValue = isOther ? 'other' : (preferences[field] ?? '')
+
+    return (
+      <>
+        <select
+          value={selectValue}
+          onChange={e => {
+            if (e.target.value === 'other') {
+              setOtherSelectActive(prev => ({ ...prev, [field]: true }))
+              onChange(field, otherSelectText[field] ?? '')
+            } else {
+              setOtherSelectActive(prev => ({ ...prev, [field]: false }))
+              onChange(field, e.target.value)
+            }
+          }}
+          className={selectClassName}
+        >
+          <option value="">No preference</option>
+          {options.map(option => <option key={option}>{option}</option>)}
+          <option value="other">Other...</option>
+        </select>
+        {isOther && (
+          <input
+            type="text"
+            placeholder="Describe your preference..."
+            value={otherSelectText[field] ?? ''}
+            onChange={e => {
+              setOtherSelectText(prev => ({ ...prev, [field]: e.target.value }))
+              onChange(field, e.target.value)
+            }}
+            className="mt-2 w-full rounded-xl border border-[#C9C3F0] bg-white px-3 py-2 text-sm outline-none focus:border-[#9B92D8] focus:ring-2 focus:ring-[#C9C3F0] dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 placeholder:text-slate-400"
+            autoFocus
+          />
+        )}
+      </>
+    )
+  }
+
   return (
     <div className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-gray-700 dark:bg-gray-800/60">
           Accommodation
-          <select
-            value={preferences.accommodation ?? ''}
-            onChange={event => onChange('accommodation', event.target.value)}
-            className={selectClassName}
-          >
-            <option value="">No preference</option>
-            {ACCOMMODATION_OPTIONS.map(option => <option key={option}>{option}</option>)}
-          </select>
+          {renderSelectWithOther('accommodation', ACCOMMODATION_OPTIONS)}
         </label>
         <label className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-gray-700 dark:bg-gray-800/60">
           Food
-          <select
-            value={preferences.foodType ?? ''}
-            onChange={event => onChange('foodType', event.target.value)}
-            className={selectClassName}
-          >
-            <option value="">No preference</option>
-            {FOOD_OPTIONS.map(option => <option key={option}>{option}</option>)}
-          </select>
+          {renderSelectWithOther('foodType', FOOD_OPTIONS)}
         </label>
       </div>
 
@@ -215,14 +317,7 @@ function OptionalPreferencesFields({
       </div>
       <label className="block rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-gray-700 dark:bg-gray-800/60">
         Travel style
-        <select
-          value={preferences.travelStyle ?? ''}
-          onChange={event => onChange('travelStyle', event.target.value)}
-          className={selectClassName}
-        >
-          <option value="">No preference</option>
-          {TRAVEL_STYLE_OPTIONS.map(option => <option key={option}>{option}</option>)}
-        </select>
+        {renderSelectWithOther('travelStyle', TRAVEL_STYLE_OPTIONS)}
       </label>
     </div>
   )
