@@ -1,5 +1,5 @@
 # WanderAI — AI Travel Assistant
-
+![landing_page](/public/landing-page.png)
 A personalized travel planning web app powered by Google Gemini AI. Plan your trip through a conversational chatbot, or get real-time AI suggestions while you're already at your destination.
 
 ---
@@ -7,6 +7,7 @@ A personalized travel planning web app powered by Google Gemini AI. Plan your tr
 ## Features
 
 ### Plan Page (`/plan`)
+![plan_page](/public/pre-travel-chatbot.png)
 - **Step-by-step planning chatbot** — collects travel preferences through a guided conversation
 - **Quick-reply chips** — select answers with one click or type freely
 - **Multi-select preferences** — pick multiple activities and dietary restrictions
@@ -16,6 +17,8 @@ A personalized travel planning web app powered by Google Gemini AI. Plan your tr
 - **Session persistence** — conversation and preferences survive page refreshes
 
 ### Travel Page (`/travel`)
+![during_travel](/public/during-travel.png)
+![during_travel](/public/during-travel-saved-options.png)
 - **Mood selector** — tell the AI how you're feeling right now (energetic, tired, hungry, relaxed, etc.)
 - **Live weather widget** — fetches current conditions for your location via OpenWeather
 - **GPS support** — detect your coordinates automatically or type a location
