@@ -262,6 +262,13 @@ function PlaceRow({ place, onRemove }: { place: VisitedPlace; onRemove: () => vo
 }
 
 // UC13: Hilfsfunktion — teilt Gemini-Text in 3 Empfehlungen auf
+function stripLeadingNumber(text: string): string {
+  return text
+    .replace(/^(#{1,3}\s*)\d+\.\s*/, '$1')
+    .replace(/^\*\*\d+\.\s*/, '**')
+    .replace(/^\d+\.\s*/, '')
+}
+
 function splitSuggestions(text: string): string[] {
   // Strip any intro sentence(s) before the first numbered item
   const firstNumberedIndex = text.search(/(?:^|\n)(##\s*\d+\.|\*\*\d+\.|\d+\.\s+\*\*|\d+\.\s+\S)/)
@@ -270,13 +277,13 @@ function splitSuggestions(text: string): string[] {
   // Versuche bei nummerierten Überschriften zu trennen (## 1. oder **1.** oder 1.)
   const byNumberedHeading = body.split(/\n(?=##\s*\d+\.|\*\*\d+\.|(?<!\S)\d+\.\s+\*\*)/)
   if (byNumberedHeading.length >= 3) {
-    return byNumberedHeading.slice(0, 3).map(s => s.trim()).filter(Boolean)
+    return byNumberedHeading.slice(0, 3).map(s => stripLeadingNumber(s.trim())).filter(Boolean)
   }
 
   // Fallback: bei doppeltem Zeilenumbruch + Ziffer trennen
   const byNewline = body.split(/\n{2,}(?=\d+\.)/)
   if (byNewline.length >= 3) {
-    return byNewline.slice(0, 3).map(s => s.trim()).filter(Boolean)
+    return byNewline.slice(0, 3).map(s => stripLeadingNumber(s.trim())).filter(Boolean)
   }
 
   // Letzter Fallback: gesamten Text als eine Karte
@@ -1262,8 +1269,8 @@ After the 3 suggestions, add a short section titled "## Why These Match You".`
                           <Icon name="x" className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                      <div className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
-                        {s.content}
+                      <div className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                        <ReactMarkdown components={mdComponents}>{s.content}</ReactMarkdown>
                       </div>
                       {placeName && (
                         <div className="px-4 pb-3 border-t border-slate-100 dark:border-gray-700 pt-2">
